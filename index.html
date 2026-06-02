@@ -4,11 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CSM 2.0 - Оценка компетенций</title>
-    <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, query, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, collection, addDoc, getDocs, query, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBir4RPFm_SqEOob0vjemiw4XXjSbc7v70",
@@ -16,8 +15,7 @@
             projectId: "csm20-4a73d",
             storageBucket: "csm20-4a73d.firebasestorage.app",
             messagingSenderId: "921600350045",
-            appId: "1:921600350045:web:dad035e72b219709693ab4",
-            measurementId: "G-S587WRP8DQ"
+            appId: "1:921600350045:web:dad035e72b219709693ab4"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -26,13 +24,12 @@
 
         window.auth = auth;
         window.db = db;
-        window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
         window.signInWithEmailAndPassword = signInWithEmailAndPassword;
+        window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
         window.signOut = signOut;
         window.onAuthStateChanged = onAuthStateChanged;
         window.doc = doc;
         window.setDoc = setDoc;
-        window.getDoc = getDoc;
         window.collection = collection;
         window.addDoc = addDoc;
         window.getDocs = getDocs;
@@ -42,23 +39,10 @@
     </script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
         .container { max-width: 800px; margin: 0 auto; padding: 16px; }
-        .nav-bar {
-            background: white; border-radius: 60px; padding: 6px; margin-bottom: 20px;
-            display: flex; gap: 4px; justify-content: space-around; flex-wrap: wrap;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-        }
-        .nav-item {
-            flex: 1; display: flex; align-items: center; justify-content: center;
-            gap: 6px; padding: 10px 8px; border: none; background: transparent;
-            border-radius: 40px; font-size: 13px; font-weight: 600;
-            cursor: pointer; color: #666; white-space: nowrap;
-        }
+        .nav-bar { background: white; border-radius: 60px; padding: 6px; margin-bottom: 20px; display: flex; gap: 4px; justify-content: space-around; flex-wrap: wrap; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
+        .nav-item { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 8px; border: none; background: transparent; border-radius: 40px; font-size: 13px; font-weight: 600; cursor: pointer; color: #666; white-space: nowrap; }
         .nav-item.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
         .card { background: white; border-radius: 24px; padding: 24px; margin-bottom: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
         h1 { font-size: 24px; margin-bottom: 8px; }
@@ -82,7 +66,8 @@
         .rating-btn.selected { background: #28a745; color: white; }
         .score-circle { width: 140px; height: 140px; border-radius: 50%; margin: 16px auto; display: flex; align-items: center; justify-content: center; }
         .score-text { font-size: 44px; font-weight: bold; color: #667eea; }
-        .history-item { background: #f8f9fa; padding: 16px; border-radius: 14px; margin-bottom: 12px; cursor: pointer; }
+        .history-item { background: #f8f9fa; padding: 16px; border-radius: 14px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; }
+        .history-item:hover { background: #e9ecef; }
         .info-box { background: #e3f2fd; padding: 16px; border-radius: 14px; margin: 16px 0; }
         .info-box-title { font-weight: 600; margin-bottom: 8px; color: #1565c0; }
         .info-text { font-size: 13px; color: #555; line-height: 1.5; }
@@ -95,6 +80,7 @@
         .loading { text-align: center; padding: 40px; }
         .spinner { width: 40px; height: 40px; border: 3px solid #e9ecef; border-top-color: #667eea; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        .recommendation-text { white-space: pre-wrap; font-size: 14px; line-height: 1.6; }
     </style>
 </head>
 <body>
@@ -157,9 +143,6 @@
         async function loadUserResults(uid) {
             try {
                 userResults.testResults = [];
-                userResults.selfResults = [];
-                
-                // Загружаем тесты из testResults (как в iOS приложении)
                 const testQuery = query(collection(db, "users", uid, "testResults"), orderBy("date", "desc"));
                 const testSnapshot = await getDocs(testQuery);
                 for (const docSnap of testSnapshot.docs) {
@@ -174,7 +157,7 @@
                     });
                 }
                 
-                // Загружаем самооценки из results
+                userResults.selfResults = [];
                 const selfQuery = query(collection(db, "users", uid, "results"), orderBy("date", "desc"));
                 const selfSnapshot = await getDocs(selfQuery);
                 for (const docSnap of selfSnapshot.docs) {
@@ -188,6 +171,22 @@
                         type: 'self'
                     });
                 }
+                
+                // ЗАГРУЖАЕМ РЕКОМЕНДАЦИИ
+                userResults.recommendations = [];
+                const recQuery = query(collection(db, "users", uid, "recommendations"), orderBy("date", "desc"));
+                const recSnapshot = await getDocs(recQuery);
+                for (const docSnap of recSnapshot.docs) {
+                    const data = docSnap.data();
+                    userResults.recommendations.push({
+                        id: docSnap.id,
+                        date: data.date?.toDate().toLocaleString() || new Date().toLocaleString(),
+                        text: data.recommendations || data.text || "",
+                        type: 'recommendation'
+                    });
+                }
+                
+                console.log(`📊 Загружено: тестов=${userResults.testResults.length}, самооценок=${userResults.selfResults.length}, рекомендаций=${userResults.recommendations.length}`);
             } catch (error) { console.error("Ошибка загрузки:", error); }
         }
 
@@ -203,6 +202,17 @@
                 });
                 await loadUserResults(uid);
             } catch (error) { console.error("Ошибка сохранения:", error); }
+        }
+
+        async function saveRecommendationToFirestore(uid, text) {
+            try {
+                await addDoc(collection(db, "users", uid, "recommendations"), {
+                    date: Timestamp.now(),
+                    recommendations: text,
+                    type: "recommendation"
+                });
+                await loadUserResults(uid);
+            } catch (error) { console.error("Ошибка сохранения рекомендации:", error); }
         }
 
         function getTotalQuestions() { return testState.areas.reduce((s, a) => s + a.questions.length, 0); }
@@ -284,16 +294,38 @@
         
         function startSelf() { selfState = { ratings: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: true, result: null }; render(); }
 
-        function generateRec() {
-            if(userResults.testResults.length===0){ alert("Сначала пройдите тест!"); return; }
+        async function generateRec() {
+            if(userResults.testResults.length === 0) { 
+                alert("Сначала пройдите тест!"); 
+                return; 
+            }
+            
             let last = userResults.testResults[0];
             let areas = ["Осознание","Стратегия","Реинжиниринг","Проектирование","Внедрение","Методология","Отраслевые","Soft skills"];
-            let text = `Рекомендации для ${currentUser?.email}:\nРезультат: ${last.overallScore}%\n\n`;
-            for(let i=0;i<last.areaScores.length;i++){
-                text += `${areas[i]}: ${last.areaScores[i]}%\n`;
-                if(last.areaScores[i]<60) text += `→ Нужно улучшить\n`;
+            let text = `**Персональные рекомендации для ${currentUser?.email || 'пользователя'}**\n\n📊 **Результат теста:** ${last.overallScore}%\n\n`;
+            
+            for(let i = 0; i < last.areaScores.length; i++) {
+                let emoji = last.areaScores[i] >= 80 ? '🟢' : (last.areaScores[i] >= 60 ? '🟡' : '🔴');
+                text += `${emoji} **${areas[i]}:** ${last.areaScores[i]}%\n`;
+                if(last.areaScores[i] < 60) {
+                    text += `   → Рекомендуется изучить материалы по этой области\n`;
+                }
             }
-            userResults.recommendations.unshift({ id: Date.now(), date: new Date().toLocaleString(), text });
+            
+            text += `\n💡 **Общие рекомендации:**\n`;
+            if(last.overallScore >= 80) {
+                text += `• Отличный результат! Продолжайте развиваться\n• Рекомендуется участвовать в сложных проектах\n• Делитесь опытом с коллегами`;
+            } else if(last.overallScore >= 60) {
+                text += `• Хороший результат! Обратите внимание на слабые области\n• Пройдите внутренние курсы по выявленным пробелам\n• Регулярно повторяйте материал`;
+            } else {
+                text += `• Рекомендуется пройти базовое обучение по CSM 2.0\n• Обратитесь к руководителю за индивидуальным планом развития\n• Начните с изучения слабых областей`;
+            }
+            
+            if (currentUser) {
+                await saveRecommendationToFirestore(currentUser.uid, text);
+                await loadUserResults(currentUser.uid);
+            }
+            
             render();
         }
 
@@ -359,16 +391,23 @@
 
         function renderLogin() { return `<div class="container"><div class="card text-center"><div style="font-size:60px">🎓</div><h1>CSM 2.0</h1><p style="color:#666;margin-bottom:30px">Система оценки компетенций</p><div class="input-group"><label>Email</label><input id="loginEmail" type="email"></div><div class="input-group"><label>Пароль</label><input id="loginPassword" type="password"></div><button class="btn btn-primary" onclick="window.handleLogin()">Войти</button><p style="margin-top:20px">Нет аккаунта? <button class="btn-secondary" style="display:inline-block;width:auto;padding:5px 15px" onclick="window.switchTab('register')">Регистрация</button></p></div></div>`; }
         function renderRegister() { return `<div class="container"><div class="card text-center"><div style="font-size:60px">📝</div><h1>Регистрация</h1><div class="input-group"><label>ФИО</label><input id="regName"></div><div class="input-group"><label>Email</label><input id="regEmail" type="email"></div><div class="input-group"><label>Пароль</label><input id="regPassword" type="password"></div><div class="input-group"><label>Подтвердите</label><input id="regConfirm" type="password"></div><button class="btn btn-primary" onclick="window.handleRegister()">Зарегистрироваться</button><p style="margin-top:20px">Уже есть аккаунт? <button class="btn-secondary" style="display:inline-block;width:auto;padding:5px 15px" onclick="window.switchTab('login')">Войти</button></p></div></div>`; }
-        function renderTestDashboard() { return `<div class="card text-center"><div style="font-size:60px">📝</div><h1>Тестирование CSM 2.0</h1><p style="color:#666;margin-bottom:20px">Проверка знаний по 8 областям</p><button class="btn btn-primary" onclick="startTest()">▶ Начать тестирование</button></div>`; }
+        function renderTestDashboard() { return `<div class="card text-center"><div style="font-size:60px">📝</div><h1>Тестирование CSM 2.0</h1><p style="color:#666;margin-bottom:20px">Проверка знаний по 8 областям компетенций</p><div class="info-box"><div class="info-box-title">📚 Что вас ждет?</div><div class="info-text">• 8 областей компетенций<br>• Тестовые вопросы с вариантами ответов<br>• Мгновенный результат по каждой области<br>• Персональные рекомендации</div></div><button class="btn btn-primary" onclick="startTest()">▶ Начать тестирование</button></div>`; }
         function renderTestTaking() { let q = getCurrentQuestion(), a = testState.answers[q?.id], area = testState.areas[testState.currentAreaIndex]; if(!q) return ''; return `<div class="card"><div class="progress-bar"><div class="progress-fill" style="width:${getTestProgress()}%"></div></div><div class="progress-text"><span>${area.name}</span><span>${testState.currentQuestionIndex+1}/${area.questions.length}</span></div><div class="question-card"><div class="question-text">${q.text}</div>${q.options.map(opt=>`<div class="option ${a===opt?'selected':''}" onclick="selectAnswer(${q.id},'${opt.replace(/'/g,"\\'")}')"><div class="option-radio"></div><span>${opt}</span></div>`).join('')}</div><div class="flex gap-2">${(testState.currentQuestionIndex>0||testState.currentAreaIndex>0)?`<button class="btn btn-secondary" onclick="prevQuestion()">← Назад</button>`:''}<div style="flex:1"></div><button class="btn btn-primary" onclick="nextQuestion()" ${!a?'disabled style="opacity:0.5"':''}>${testState.currentAreaIndex===testState.areas.length-1 && testState.currentQuestionIndex===area.questions.length-1?'Завершить →':'Далее →'}</button></div></div>`; }
-        function renderTestResult() { let r = testState.result, areas=["Осознание","Стратегия","Реинжиниринг","Проектирование","Внедрение","Методология","Отраслевые","Soft skills"], deg = (r.overallScore/100)*360; return `<div class="card text-center"><h1>📊 Результаты теста</h1><div class="score-circle" style="background:conic-gradient(#667eea ${deg}deg,#e9ecef 0deg)"><div class="score-text">${r.overallScore}%</div></div>${r.areaScores.map((s,i)=>`<div><div class="justify-between flex"><span>${areas[i]}</span><span>${s}%</span></div><div class="progress-bar"><div class="progress-fill" style="width:${s}%"></div></div></div>`).join('')}<div class="info-box"><div class="info-box-title">💡 Рекомендации</div><div class="info-text">${r.recommendations}</div></div><div class="flex gap-2"><button class="btn btn-secondary" onclick="startTest()">Пройти заново</button><button class="btn btn-primary" onclick="window.switchTab('test'); testState.result=null; render()">На главную</button></div></div>`; }
-        function renderSelfDashboard() { return `<div class="card text-center"><div style="font-size:60px">📊</div><h1>Самооценка</h1><p style="color:#666;margin-bottom:20px">Оцените навыки от 1 до 10</p><div class="info-box"><div class="info-box-title">📌 Шкала</div><div class="info-text">1-2: Не знаю | 3-4: Теория | 5-6: Применял | 7-8: Уверенно | 9-10: Обучаю</div></div><button class="btn btn-primary" onclick="startSelf()">▶ Начать</button></div>`; }
+        function renderTestResult() { let r = testState.result, areas=["Осознание","Стратегия","Реинжиниринг","Проектирование","Внедрение","Методология","Отраслевые","Soft skills"], deg = (r.overallScore/100)*360; return `<div class="card text-center"><h1>📊 Результаты теста</h1><div class="score-circle" style="background:conic-gradient(#667eea ${deg}deg,#e9ecef 0deg)"><div class="score-text">${r.overallScore}%</div></div>${r.areaScores.map((s,i)=>`<div style="margin-bottom:16px"><div class="justify-between flex"><span>${areas[i]}</span><span>${s}%</span></div><div class="progress-bar" style="height:6px"><div class="progress-fill" style="width:${s}%"></div></div></div>`).join('')}<div class="info-box"><div class="info-box-title">💡 Рекомендации</div><div class="info-text">${r.recommendations}</div></div><div class="flex gap-2"><button class="btn btn-secondary" onclick="startTest()">Пройти заново</button><button class="btn btn-primary" onclick="window.switchTab('test'); testState.result=null; render()">На главную</button></div></div>`; }
+        function renderSelfDashboard() { return `<div class="card text-center"><div style="font-size:60px">📊</div><h1>Самооценка компетенций CSM 2.0</h1><p style="color:#666;margin-bottom:20px">Оцените свои навыки по 8 областям от 1 до 10</p><div class="info-box"><div class="info-box-title">📌 Что означают оценки?</div><div class="info-text" style="text-align:left">• 1-2 — Не знаю / Слышал термин<br>• 3-4 — Могу дать определение / Изучал теорию<br>• 5-6 — Применял под руководством / В простых ситуациях<br>• 7-8 — Применяю уверенно / В сложных задачах<br>• 9-10 — Могу обучать / Внедрял в масштабе банка</div></div><button class="btn btn-primary" onclick="startSelf()">▶ Начать самооценку</button></div>`; }
         function renderSelfTaking() { let q = getCurrentSelf(), cur = getCurrentRating(), area = SELF_ASSESSMENT_AREAS[selfState.currentAreaIndex]; return `<div class="card"><div class="progress-bar"><div class="progress-fill" style="width:${getSelfProgress()}%"></div></div><div class="progress-text"><span>${area.name}</span><span>${selfState.currentQuestionIndex+1}/${area.questions.length}</span></div><div class="question-card"><div class="question-text">${q}</div><div class="rating-buttons">${[1,2,3,4,5,6,7,8,9,10].map(r=>`<button class="rating-btn ${cur===r?'selected':''}" onclick="setSelfRating(${selfState.currentAreaIndex},${selfState.currentQuestionIndex},${r})">${r}</button>`).join('')}</div></div><div class="flex gap-2">${(selfState.currentQuestionIndex>0||selfState.currentAreaIndex>0)?`<button class="btn btn-secondary" onclick="prevSelf()">← Назад</button>`:''}<div style="flex:1"></div><button class="btn btn-primary" onclick="nextSelf()" ${!cur?'disabled style="opacity:0.5"':''}>${selfState.currentAreaIndex===SELF_ASSESSMENT_AREAS.length-1 && selfState.currentQuestionIndex===area.questions.length-1?'Завершить →':'Далее →'}</button></div></div>`; }
-        function renderSelfResult() { let r = selfState.result, areas=["Осознание","Стратегия","Реинжиниринг","Проектирование","Внедрение","Методология","Отраслевые","Soft skills"], deg = (r.overallScore/10)*360; return `<div class="card text-center"><h1>📊 Результаты</h1><div class="score-circle" style="background:conic-gradient(#28a745 ${deg}deg,#e9ecef 0deg)"><div class="score-text" style="color:#28a745">${r.overallScore.toFixed(1)}</div></div><p>из 10</p>${r.areaScores.map((s,i)=>`<div><div class="justify-between flex"><span>${areas[i]}</span><span>${s.toFixed(1)}</span></div><div class="progress-bar"><div class="progress-fill" style="width:${s*10}%;background:#28a745"></div></div></div>`).join('')}<div class="info-box"><div class="info-box-title">💡 Рекомендации</div><div class="info-text">${r.recommendations}</div></div><div class="flex gap-2"><button class="btn btn-secondary" onclick="startSelf()">Заново</button><button class="btn btn-primary" onclick="window.switchTab('self'); selfState.result=null; render()">Главная</button></div></div>`; }
-        function renderRecommendations() { if(userResults.recommendations.length===0) return `<div class="card text-center"><h1>⭐ Рекомендации</h1><p>Нет рекомендаций</p><button class="btn btn-primary" onclick="generateRec()">✨ Получить</button></div>`; return `<div class="card"><div class="justify-between flex"><h1>⭐ Рекомендации</h1><button class="btn btn-primary" style="width:auto" onclick="generateRec()">✨ Новые</button></div>${userResults.recommendations.map(rec=>`<div class="history-item" onclick="showRecModal('${rec.id}')"><div><strong>${rec.date}</strong><p>${rec.text.substring(0,100)}...</p></div></div>`).join('')}</div><div id="recModal" class="modal"><div class="modal-content"><div class="justify-between flex"><h2>Рекомендации</h2><button onclick="closeRecModal()">✕</button></div><div id="recText"></div></div></div>`; }
-        function renderHistory() { let h = getAllHistory(); if(h.length===0) return `<div class="card text-center"><h1>📜 История</h1><p>Нет результатов</p></div>`; return `<div class="card"><h1>📜 История</h1>${h.map(item=>`<div class="history-item" onclick="showHistoryModal('${item.id}','${item.type}')"><div class="justify-between flex"><div><span style="font-size:20px">${item.icon}</span> <strong>${item.typeName}</strong><p style="font-size:12px">${item.date}</p></div><span style="font-size:20px;color:${item.type==='test'?'#667eea':'#28a745'}">${item.type==='test'?item.overallScore+'%':item.overallScore.toFixed(1)+'/10'}</span></div></div>`).join('')}</div><div id="historyModal" class="modal"><div class="modal-content"><div class="justify-between flex"><h2 id="modalTitle">Детали</h2><button onclick="closeHistoryModal()">✕</button></div><div id="modalContent"></div></div></div>`; }
-        function renderProfile() { return `<div class="card text-center"><div style="font-size:80px">👤</div><h1>${currentUser?.email || 'Пользователь'}</h1><div class="info-box"><div class="info-box-title">📊 Статистика</div><div class="info-text">📝 Тестов: ${userResults.testResults.length}<br>📊 Самооценок: ${userResults.selfResults.length}</div></div><button class="btn btn-danger" onclick="handleLogout()">🚪 Выйти</button></div>`; }
-        function renderLoading() { return `<div class="card loading"><div class="spinner"></div><p>Загрузка...</p></div>`; }
+        function renderSelfResult() { let r = selfState.result, areas=["Осознание","Стратегия","Реинжиниринг","Проектирование","Внедрение","Методология","Отраслевые","Soft skills"], deg = (r.overallScore/10)*360; return `<div class="card text-center"><h1>📊 Результаты самооценки</h1><div class="score-circle" style="background:conic-gradient(#28a745 ${deg}deg,#e9ecef 0deg)"><div class="score-text" style="color:#28a745">${r.overallScore.toFixed(1)}</div></div><p>из 10</p>${r.areaScores.map((s,i)=>`<div style="margin-bottom:16px"><div class="justify-between flex"><span>${areas[i]}</span><span>${s.toFixed(1)}</span></div><div class="progress-bar" style="height:6px"><div class="progress-fill" style="width:${s*10}%;background:#28a745"></div></div></div>`).join('')}<div class="info-box" style="background:#e8f5e9"><div class="info-box-title">💡 Рекомендации</div><div class="info-text">${r.recommendations}</div></div><div class="flex gap-2"><button class="btn btn-secondary" onclick="startSelf()">Пройти заново</button><button class="btn btn-primary" onclick="window.switchTab('self'); selfState.result=null; render()">На главную</button></div></div>`; }
+        
+        function renderRecommendations() { 
+            if(userResults.recommendations.length === 0) { 
+                return `<div class="card text-center"><div style="font-size:60px">⭐</div><h1>Рекомендации</h1><p style="color:#666;margin-bottom:20px">Нет сохранённых рекомендаций</p><button class="btn btn-primary" onclick="generateRec()">✨ Получить новые рекомендации</button></div>`; 
+            }
+            return `<div class="card"><div class="justify-between flex" style="margin-bottom:20px"><h1>⭐ Рекомендации</h1><button class="btn btn-primary" style="width:auto;padding:10px 20px" onclick="generateRec()">✨ Новые</button></div>${userResults.recommendations.map(rec => `<div class="history-item" onclick="showRecModal('${rec.id}')"><div class="justify-between flex"><div><strong>${rec.date}</strong><p style="font-size:14px;color:#666;margin-top:5px">Персональные рекомендации</p></div><span style="font-size:20px">→</span></div></div>`).join('')}</div><div id="recModal" class="modal"><div class="modal-content"><div class="justify-between flex"><h2>Рекомендации</h2><button onclick="closeRecModal()" style="background:none;border:none;font-size:24px;cursor:pointer">✕</button></div><div id="recText" class="recommendation-text"></div></div></div>`; 
+        }
+        
+        function renderHistory() { let h = getAllHistory(); if(h.length===0) return `<div class="card text-center"><div style="font-size:60px">📜</div><h1>История</h1><p style="color:#666">Нет результатов</p></div>`; return `<div class="card"><h1>📜 История результатов</h1>${h.map(item=>`<div class="history-item" onclick="showHistoryModal('${item.id}','${item.type}')"><div class="justify-between flex"><div><span style="font-size:20px;margin-right:10px">${item.icon}</span><strong>${item.typeName}</strong><p style="font-size:12px;color:#666">${item.date}</p></div><span style="font-size:20px;font-weight:bold;color:${item.type==='test'?'#667eea':'#28a745'}">${item.type==='test'?item.overallScore+'%':item.overallScore.toFixed(1)+'/10'}</span></div></div>`).join('')}</div><div id="historyModal" class="modal"><div class="modal-content"><div class="justify-between flex"><h2 id="modalTitle">Детали</h2><button onclick="closeHistoryModal()" style="background:none;border:none;font-size:24px;cursor:pointer">✕</button></div><div id="modalContent"></div></div></div>`; }
+        function renderProfile() { return `<div class="card text-center"><div style="font-size:80px">👤</div><h1>${currentUser?.email || 'Пользователь'}</h1><p style="color:#666;margin-bottom:30px">${currentUser?.email || ''}</p><div class="info-box"><div class="info-box-title">📊 Статистика</div><div class="info-text">• Тестов: ${userResults.testResults.length}<br>• Самооценок: ${userResults.selfResults.length}<br>• Рекомендаций: ${userResults.recommendations.length}</div></div><button class="btn btn-danger" onclick="handleLogout()">🚪 Выйти</button></div>`; }
+        function renderLoading() { return `<div class="card loading"><div class="spinner"></div><p>Загрузка вопросов из Google Sheets...</p></div>`; }
 
         window.showHistoryModal = (id, type) => {
             let item = type === 'test' ? userResults.testResults.find(r=>r.id===id) : userResults.selfResults.find(r=>r.id===id);
@@ -376,22 +415,29 @@
             let modal = document.getElementById('historyModal'), content = document.getElementById('modalContent'), title = document.getElementById('modalTitle');
             if(item){
                 title.innerText = type === 'test' ? 'Результат теста' : 'Результат самооценки';
-                content.innerHTML = `<p>${item.date}</p><div class="text-center"><span style="font-size:36px;font-weight:bold;color:${type==='test'?'#667eea':'#28a745'}">${type==='test'?item.overallScore+'%':item.overallScore.toFixed(1)+'/10'}</span></div><h3>Детали:</h3>${item.areaScores.map((s,i)=>`<div><div class="justify-between flex"><span>${areas[i]}</span><span>${type==='test'?s+'%':s.toFixed(1)}</span></div><div class="progress-bar"><div class="progress-fill" style="width:${type==='test'?s:s*10}%"></div></div></div>`).join('')}<div class="info-box"><div class="info-box-title">💡 Рекомендации</div><div class="info-text">${item.recommendations}</div></div>`;
+                content.innerHTML = `<p style="color:#666;margin-bottom:16px">${item.date}</p><div class="text-center" style="margin-bottom:20px"><span style="font-size:36px;font-weight:bold;color:${type==='test'?'#667eea':'#28a745'}">${type==='test'?item.overallScore+'%':item.overallScore.toFixed(1)+'/10'}</span></div><h3>Детали:</h3>${item.areaScores.map((s,i)=>`<div style="margin-bottom:12px"><div class="justify-between flex"><span>${areas[i]}</span><span>${type==='test'?s+'%':s.toFixed(1)}</span></div><div class="progress-bar" style="height:4px"><div class="progress-fill" style="width:${type==='test'?s:s*10}%"></div></div></div>`).join('')}<div class="info-box" style="margin-top:20px"><div class="info-box-title">💡 Рекомендации</div><div class="info-text">${item.recommendations}</div></div>`;
                 modal.classList.add('active');
             }
         };
         window.closeHistoryModal = () => document.getElementById('historyModal').classList.remove('active');
-        window.showRecModal = (id) => { let rec = userResults.recommendations.find(r=>r.id==id); if(rec){ document.getElementById('recText').innerHTML = `<p>${rec.date}</p>${rec.text.replace(/\n/g,'<br>')}`; document.getElementById('recModal').classList.add('active'); } };
+        
+        window.showRecModal = (id) => { 
+            let rec = userResults.recommendations.find(r => r.id == id); 
+            if(rec){ 
+                document.getElementById('recText').innerHTML = `<p style="color:#666;margin-bottom:16px">${rec.date}</p>${rec.text.replace(/\n/g,'<br>')}`; 
+                document.getElementById('recModal').classList.add('active'); 
+            } 
+        };
         window.closeRecModal = () => document.getElementById('recModal').classList.remove('active');
         
         window.switchTab = (tab) => { currentTab = tab; render(); };
         window.handleLogin = () => { let email = document.getElementById('loginEmail')?.value, pwd = document.getElementById('loginPassword')?.value; if(email && pwd) handleLogin(email, pwd); };
         window.handleRegister = () => { let name = document.getElementById('regName')?.value, email = document.getElementById('regEmail')?.value, pwd = document.getElementById('regPassword')?.value, confirm = document.getElementById('regConfirm')?.value; if(pwd !== confirm) alert('Пароли не совпадают'); else handleRegister(email, pwd, name); };
         window.handleLogout = handleLogout;
+        window.generateRec = generateRec;
         
         window.selectAnswer = selectAnswer; window.nextQuestion = nextQuestion; window.prevQuestion = prevQuestion; window.startTest = startTest;
         window.setSelfRating = setSelfRating; window.nextSelf = nextSelf; window.prevSelf = prevSelf; window.startSelf = startSelf;
-        window.generateRec = generateRec;
         
         onAuthStateChanged(auth, async (user) => {
             if (user) { currentUser = user; await loadUserResults(user.uid); }
