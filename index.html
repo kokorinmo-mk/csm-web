@@ -2,128 +2,100 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CSM 2.0 - Оценка компетенций</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Импорт Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, query, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
+        // ВАША КОНФИГУРАЦИЯ FIREBASE
+        const firebaseConfig = {
+            apiKey: "AIzaSyBir4RPM_SqE0ob0vjemiw4XXjSbc7v70",
+            authDomain: "csm20-4a73d.firebaseapp.com",
+            projectId: "csm20-4a73d",
+            storageBucket: "csm20-4a73d.firebasestorage.app",
+            messagingSenderId: "921600350045",
+            appId: "1:921600350045:web:dad035e72b219709693ab4",
+            measurementId: "G-S587WRP8DQ"
+        };
+
+        // Инициализация Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Сделаем функции и переменные глобальными
+        window.auth = auth;
+        window.db = db;
+        window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
+        window.signInWithEmailAndPassword = signInWithEmailAndPassword;
+        window.signOut = signOut;
+        window.onAuthStateChanged = onAuthStateChanged;
+        window.doc = doc;
+        window.setDoc = setDoc;
+        window.getDoc = getDoc;
+        window.collection = collection;
+        window.addDoc = addDoc;
+        window.getDocs = getDocs;
+        window.query = query;
+        window.orderBy = orderBy;
+        window.Timestamp = Timestamp;
+    </script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
         }
-
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 16px;
-        }
-
-        /* НАВИГАЦИЯ СВЕРХУ */
+        .container { max-width: 800px; margin: 0 auto; padding: 16px; }
         .nav-bar {
-            background: white;
-            border-radius: 60px;
-            padding: 6px;
-            margin-bottom: 20px;
+            background: white; border-radius: 60px; padding: 6px; margin-bottom: 20px;
+            display: flex; gap: 4px; justify-content: space-around; flex-wrap: wrap;
             box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-            display: flex;
-            gap: 4px;
-            justify-content: space-around;
-            flex-wrap: wrap;
         }
-
         .nav-item {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            padding: 10px 8px;
-            border: none;
-            background: transparent;
-            border-radius: 40px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            color: #666;
-            white-space: nowrap;
+            flex: 1; display: flex; align-items: center; justify-content: center;
+            gap: 6px; padding: 10px 8px; border: none; background: transparent;
+            border-radius: 40px; font-size: 13px; font-weight: 600;
+            cursor: pointer; color: #666; white-space: nowrap;
         }
-
-        .nav-item.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .card {
-            background: white;
-            border-radius: 24px;
-            padding: 24px;
-            margin-bottom: 16px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-        }
-
+        .nav-item.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .card { background: white; border-radius: 24px; padding: 24px; margin-bottom: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
         h1 { font-size: 24px; margin-bottom: 8px; }
-        .btn {
-            padding: 14px 24px;
-            border: none;
-            border-radius: 14px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            width: 100%;
-        }
+        .btn { padding: 14px 24px; border: none; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; }
         .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
         .btn-secondary { background: #e9ecef; color: #333; }
         .btn-danger { background: #dc3545; color: white; }
-        
         .input-group { margin-bottom: 16px; }
         .input-group label { display: block; margin-bottom: 8px; font-weight: 500; }
         input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 14px; font-size: 16px; }
-        input:focus { outline: none; border-color: #667eea; }
-        
         .question-card { background: #f8f9fa; border-radius: 16px; padding: 20px; margin-bottom: 20px; }
         .question-text { font-size: 18px; font-weight: 600; margin-bottom: 20px; }
-        .option {
-            background: white; padding: 14px; margin: 8px 0; border-radius: 12px;
-            cursor: pointer; border: 2px solid transparent; display: flex; align-items: center; gap: 12px;
-        }
-        .option:hover { background: #e8e8ff; }
+        .option { background: white; padding: 14px; margin: 8px 0; border-radius: 12px; cursor: pointer; border: 2px solid transparent; display: flex; align-items: center; gap: 12px; }
         .option.selected { border-color: #667eea; background: #f0f0ff; }
         .option-radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #ccc; }
         .option.selected .option-radio { border-color: #667eea; background: #667eea; box-shadow: inset 0 0 0 4px white; }
-        
         .progress-bar { width: 100%; height: 8px; background: #e9ecef; border-radius: 10px; overflow: hidden; margin-bottom: 8px; }
         .progress-fill { height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); transition: width 0.3s; }
-        .progress-text { display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-bottom: 16px; }
-        
         .rating-buttons { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
         .rating-btn { width: 48px; height: 48px; border-radius: 12px; background: #e9ecef; border: none; font-size: 18px; font-weight: bold; cursor: pointer; }
         .rating-btn.selected { background: #28a745; color: white; }
-        
         .score-circle { width: 140px; height: 140px; border-radius: 50%; margin: 16px auto; display: flex; align-items: center; justify-content: center; }
         .score-text { font-size: 44px; font-weight: bold; color: #667eea; }
-        
         .history-item { background: #f8f9fa; padding: 16px; border-radius: 14px; margin-bottom: 12px; cursor: pointer; }
-        .history-item:hover { background: #e9ecef; }
-        
         .info-box { background: #e3f2fd; padding: 16px; border-radius: 14px; margin: 16px 0; }
         .info-box-title { font-weight: 600; margin-bottom: 8px; color: #1565c0; }
         .info-text { font-size: 13px; color: #555; line-height: 1.5; }
-        
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
         .modal.active { display: flex; }
         .modal-content { background: white; border-radius: 24px; padding: 24px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; }
-        
         .flex { display: flex; }
-        .gap-2 { gap: 8px; }
         .justify-between { justify-content: space-between; }
         .text-center { text-align: center; }
-        .mt-4 { margin-top: 20px; }
         .loading { text-align: center; padding: 40px; }
         .spinner { width: 40px; height: 40px; border: 3px solid #e9ecef; border-top-color: #667eea; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -132,97 +104,55 @@
 <body>
     <div id="app"></div>
 
-    <script>
-        // ========== URL ДЛЯ ЗАГРУЗКИ ВОПРОСОВ ИЗ GOOGLE SHEETS (как в вашем Swift коде) ==========
-        const TEST_QUESTIONS_URL = "https://script.google.com/macros/s/AKfycbymZueJVozXFoH2wxfJM3jAGXg08mhwrzVAQMKmpR7mm4XQWQKNe-AHYz-iryA8QVqUYg/exec";
-
-        // ========== ДАННЫЕ ДЛЯ САМООЦЕНКИ (из вашего кода) ==========
+    <script type="module">
+        // ========== ДАННЫЕ ДЛЯ САМООЦЕНКИ ==========
         const SELF_ASSESSMENT_AREAS = [
-            { name: "Область 1. Осознание (тренды и цифровая трансформация)", questions: [ "Понимаю тренды: AI, Big Data, IoT, Web 3.0, Cloud, Blockchain", "Понимаю цели, задачи и архитектуру цифровой трансформации банка", "Знаю отраслевые кейсы и особенности технологического развития в нашей отрасли" ] },
-            { name: "Область 2. Стратегия", questions: [ "Мыслю стратегически (вижу картину на 3–5 лет)", "Знаю Стратегию Сбера и КПБ бизнес-модель сегмента", "Могу описать бизнес-модель компании через Business Model Canvas", "Умею находить точки роста и формулировать гипотезы трансформации", "Понимаю модели управления цифровой трансформацией и цифровые роли", "Разделяю концепцию LoveMark и человекоцентричности" ] },
-            { name: "Область 3. Реинжиниринг процессов и оргструктуры", questions: [ "Понимаю цели и задачи клиентских исследований", "Владею бизнес-анализом и реинжинирингом процессов", "Могу описать и спроектировать клиентский путь (Customer Journey Map, CJM)", "Знаю цифровые Core-продукты Сбера (финтех)", "Знаю финансовые и транзакционные Core-продукты Сбера", "Понимаю основы IT-архитектуры", "Могу провести финансовую и экономическую оценку проектов" ] },
-            { name: "Область 4. Проектирование и разработка решения", questions: [ "Владею продуктовым менеджментом и продуктовым мышлением", "Владею проектным менеджментом (Agile, Waterfall, Sbergile, PMBok, IPMA)", "Понимаю основы управления процессом разработки ПО", "Знаю партнёрскую программу Сбера" ] },
-            { name: "Область 5. Внедрение и развитие решения", questions: [ "Знаю форматы партнёрств и основы патентного права", "Понимаю процессы постановки решений на Продуктовую полку Сбера" ] },
-            { name: "Область 6. Общесистемные компетенции и методология", questions: [ "Знаю процесс цифровой трансформации (П3181)", "Владею инструментами CSM при реализации проектов", "Использую генеративные модели (GigaChat) в работе над проектами", "Понимаю систему мотивации CSM" ] },
-            { name: "Область 7. Отраслевые компетенции", questions: [ "Анализирую рынок, тренды, драйверы, госрегулирование и позицию отрасли", "Знаю специфику отрасли (производство, финансовый анализ, ключевые риски, операционные KPI)", "Ориентируюсь в продуктах и финансировании" ] },
-            { name: "Область 8. Soft skills", questions: [ "Владею системным мышлением и решением проблем", "Умею управлять результатом и несу ответственность", "Управляю собой (эмоции, время, стресс)" ] }
+            { name: "Область 1. Осознание (тренды)", questions: [ "Понимаю тренды: AI, Big Data, IoT, Cloud", "Понимаю цели цифровой трансформации", "Знаю отраслевые кейсы" ] },
+            { name: "Область 2. Стратегия", questions: [ "Мыслю стратегически на 3-5 лет", "Знаю стратегию компании", "Могу описать бизнес-модель", "Нахожу точки роста", "Понимаю цифровые роли", "Разделяю человекоцентричность" ] },
+            { name: "Область 3. Реинжиниринг", questions: [ "Понимаю цели исследований", "Владею бизнес-анализом", "Могу создать CJM", "Знаю цифровые продукты", "Понимаю IT-архитектуру", "Могу оценить экономику" ] },
+            { name: "Область 4. Проектирование", questions: [ "Владею продуктовым менеджментом", "Владею проектным менеджментом", "Понимаю разработку ПО", "Знаю партнёрскую программу" ] },
+            { name: "Область 5. Внедрение", questions: [ "Знаю форматы партнёрств", "Понимаю процессы внедрения" ] },
+            { name: "Область 6. Методология", questions: [ "Знаю процесс трансформации", "Владею инструментами CSM", "Использую GigaChat", "Понимаю мотивацию" ] },
+            { name: "Область 7. Отраслевые", questions: [ "Анализирую рынок", "Знаю специфику отрасли", "Ориентируюсь в продуктах" ] },
+            { name: "Область 8. Soft skills", questions: [ "Владею системным мышлением", "Управляю результатом", "Управляю собой" ] }
         ];
 
-        // ========== АВТОРИЗАЦИЯ ==========
-        let auth = {
-            isLoggedIn: false,
-            currentUser: null,
-            users: JSON.parse(localStorage.getItem('csm_users') || '[]'),
-            login(email, password) {
-                let user = this.users.find(u => u.email === email && u.password === password);
-                if (user) { this.isLoggedIn = true; this.currentUser = user; localStorage.setItem('csm_currentUser', JSON.stringify(user)); return true; }
-                return false;
-            },
-            register(email, password, fullName) {
-                if (this.users.find(u => u.email === email)) return false;
-                this.users.push({ email, password, fullName, createdAt: new Date() });
-                localStorage.setItem('csm_users', JSON.stringify(this.users));
-                return true;
-            },
-            logout() { this.isLoggedIn = false; this.currentUser = null; localStorage.removeItem('csm_currentUser'); },
-            loadSavedUser() { let saved = localStorage.getItem('csm_currentUser'); if (saved) { this.currentUser = JSON.parse(saved); this.isLoggedIn = true; } }
-        };
+        // ========== URL ДЛЯ ЗАГРУЗКИ ВОПРОСОВ ИЗ GOOGLE SHEETS ==========
+        const TEST_QUESTIONS_URL = "https://script.google.com/macros/s/AKfycbymZueJVozXFoH2wxfJM3jAGXg08mhwrzVAQMKmpR7mm4XQWQKNe-AHYz-iryA8QVqUYg/exec";
 
-        // ========== ХРАНИЛИЩЕ ==========
-        let userResults = {
-            testResults: JSON.parse(localStorage.getItem('csm_testResults') || '[]'),
-            selfResults: JSON.parse(localStorage.getItem('csm_selfResults') || '[]'),
-            recommendations: JSON.parse(localStorage.getItem('csm_recommendations') || '[]')
-        };
-        function saveResults() {
-            localStorage.setItem('csm_testResults', JSON.stringify(userResults.testResults));
-            localStorage.setItem('csm_selfResults', JSON.stringify(userResults.selfResults));
-            localStorage.setItem('csm_recommendations', JSON.stringify(userResults.recommendations));
-        }
+        let testAreas = [];
+        let isLoadingQuestions = false;
+        
+        // Состояние пользователя
+        let currentUser = null;
+        let currentTab = 'test';
+        let testState = { answers: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: false, result: null, areas: [] };
+        let selfState = { ratings: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: false, result: null };
+        let userResults = { testResults: [], selfResults: [], recommendations: [] };
 
         // ========== ЗАГРУЗКА ВОПРОСОВ ИЗ GOOGLE SHEETS ==========
-        let testAreas = []; // сюда загрузим вопросы
-        let isLoadingQuestions = false;
-        let loadError = null;
-
-        function loadQuestionsFromGoogleSheets() {
-            return new Promise((resolve, reject) => {
-                isLoadingQuestions = true;
-                loadError = null;
-                
-                fetch(TEST_QUESTIONS_URL)
-                    .then(response => response.json())
-                    .then(serverAreas => {
-                        // Конвертируем как в Swift коде
-                        testAreas = convertServerAreasToTestAreas(serverAreas);
-                        isLoadingQuestions = false;
-                        resolve(testAreas);
-                    })
-                    .catch(error => {
-                        console.error("Ошибка загрузки из Google Sheets:", error);
-                        loadError = "Не удалось загрузить вопросы. Проверьте интернет.";
-                        isLoadingQuestions = false;
-                        reject(error);
-                    });
-            });
+        async function loadQuestionsFromGoogleSheets() {
+            isLoadingQuestions = true;
+            try {
+                const response = await fetch(TEST_QUESTIONS_URL);
+                const serverAreas = await response.json();
+                testAreas = convertServerAreasToTestAreas(serverAreas);
+            } catch (error) {
+                console.error("Ошибка загрузки:", error);
+            }
+            isLoadingQuestions = false;
+            render();
         }
 
-        // Функция конвертации (как в вашем TestManager.swift)
         function convertServerAreasToTestAreas(serverAreas) {
-            let testAreasResult = [];
+            let result = [];
             let questionId = 1;
-            
             for (let areaId = 0; areaId < serverAreas.length; areaId++) {
                 const serverArea = serverAreas[areaId];
                 let questions = [];
-                
                 for (let q of serverArea.closed) {
-                    // Получаем правильный ответ по букве (A, B, C, D)
                     const correctIndex = getIndexFromLetter(q.correct);
-                    const correctAnswerText = (correctIndex >= 0 && correctIndex < q.options.length) 
-                        ? q.options[correctIndex] 
-                        : (q.options[0] || "");
-                    
+                    const correctAnswerText = (correctIndex >= 0 && correctIndex < q.options.length) ? q.options[correctIndex] : (q.options[0] || "");
                     questions.push({
                         id: questionId++,
                         text: q.text,
@@ -231,33 +161,67 @@
                         areaId: areaId + 1
                     });
                 }
-                
-                testAreasResult.push({
-                    id: areaId + 1,
-                    name: serverArea.name,
-                    questions: questions
-                });
+                result.push({ id: areaId + 1, name: serverArea.name, questions: questions });
             }
-            return testAreasResult;
+            return result;
         }
 
         function getIndexFromLetter(letter) {
-            const upper = letter.trim().toUpperCase();
             const map = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
-            return map[upper] !== undefined ? map[upper] : -1;
+            return map[letter.trim().toUpperCase()] ?? -1;
         }
 
-        // ========== СОСТОЯНИЕ ==========
-        let currentTab = 'test';
-        let testState = { answers: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: false, result: null, areas: [] };
-        let selfState = { ratings: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: false, result: null };
+        // ========== ЗАГРУЗКА РЕЗУЛЬТАТОВ ИЗ FIRESTORE ==========
+        async function loadUserResults(uid) {
+            try {
+                const resultsQuery = query(collection(db, "users", uid, "results"), orderBy("date", "desc"));
+                const snapshot = await getDocs(resultsQuery);
+                userResults.testResults = [];
+                userResults.selfResults = [];
+                userResults.recommendations = [];
+                
+                for (const docSnap of snapshot.docs) {
+                    const data = docSnap.data();
+                    const result = {
+                        id: docSnap.id,
+                        date: data.date?.toDate().toLocaleString() || new Date().toLocaleString(),
+                        areaScores: data.areaScores,
+                        overallScore: data.overallScore,
+                        recommendations: data.recommendations || "",
+                        type: data.type
+                    };
+                    if (data.type === 'test') userResults.testResults.push(result);
+                    else if (data.type === 'self') userResults.selfResults.push(result);
+                }
+            } catch (error) {
+                console.error("Ошибка загрузки результатов:", error);
+            }
+        }
+
+        // ========== СОХРАНЕНИЕ РЕЗУЛЬТАТА В FIRESTORE ==========
+        async function saveResultToFirestore(uid, result) {
+            try {
+                await addDoc(collection(db, "users", uid, "results"), {
+                    type: result.type,
+                    date: Timestamp.now(),
+                    overallScore: result.type === 'test' ? result.overallScore : Math.round(result.overallScore * 10),
+                    areaScores: result.areaScores.map(s => Math.round(s)),
+                    recommendations: result.recommendations || ""
+                });
+                await loadUserResults(uid);
+            } catch (error) {
+                console.error("Ошибка сохранения:", error);
+            }
+        }
 
         // ========== ФУНКЦИИ ТЕСТА ==========
         function getTotalQuestions() { return testState.areas.reduce((s, a) => s + a.questions.length, 0); }
         function getAnsweredCount() { return Object.keys(testState.answers).length; }
         function getTestProgress() { return getTotalQuestions() ? (getAnsweredCount() / getTotalQuestions()) * 100 : 0; }
         function getCurrentQuestion() { return testState.areas[testState.currentAreaIndex]?.questions[testState.currentQuestionIndex]; }
+        
         function selectAnswer(id, answer) { testState.answers[id] = answer; render(); }
+        
         function nextQuestion() {
             let area = testState.areas[testState.currentAreaIndex];
             if (testState.currentQuestionIndex + 1 < area.questions.length) testState.currentQuestionIndex++;
@@ -265,12 +229,14 @@
             else finishTest();
             render();
         }
+        
         function prevQuestion() {
             if (testState.currentQuestionIndex > 0) testState.currentQuestionIndex--;
             else if (testState.currentAreaIndex > 0) { testState.currentAreaIndex--; testState.currentQuestionIndex = testState.areas[testState.currentAreaIndex].questions.length - 1; }
             render();
         }
-        function finishTest() {
+        
+        async function finishTest() {
             let areaScores = [];
             let areaNames = ["Осознание","Стратегия","Реинжиниринг","Проектирование","Внедрение","Методология","Отраслевые","Soft skills"];
             for (let area of testState.areas) {
@@ -282,19 +248,13 @@
             let weak = areaScores.filter(s=>s<60).length;
             let rec = weak === 0 ? "Отлично! Все компетенции на высоком уровне!" : "Рекомендуется уделить внимание:\n" + areaScores.map((s,i)=>s<60?`• ${areaNames[i]} (${s}%)\n`:'').join('');
             let result = { id: Date.now(), date: new Date().toLocaleString(), areaScores, overallScore: overall, recommendations: rec, type: 'test' };
-            userResults.testResults.unshift(result); saveResults();
+            if (currentUser) await saveResultToFirestore(currentUser.uid, result);
             testState.result = result; testState.isActive = false; render();
         }
+        
         async function startTest() {
-            if (testState.areas.length === 0) {
-                await loadQuestionsFromGoogleSheets();
-                if (testAreas.length === 0) {
-                    alert("Не удалось загрузить вопросы. Проверьте интернет.");
-                    return;
-                }
-                testState.areas = JSON.parse(JSON.stringify(testAreas));
-            }
-            testState = { ...testState, answers: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: true, result: null };
+            if (testAreas.length === 0) await loadQuestionsFromGoogleSheets();
+            testState = { ...testState, answers: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: true, result: null, areas: JSON.parse(JSON.stringify(testAreas)) };
             render();
         }
 
@@ -305,6 +265,7 @@
         function getCurrentSelf() { return SELF_ASSESSMENT_AREAS[selfState.currentAreaIndex]?.questions[selfState.currentQuestionIndex]; }
         function setSelfRating(area, q, rating) { selfState.ratings[`${area}-${q}`] = rating; render(); }
         function getCurrentRating() { return selfState.ratings[`${selfState.currentAreaIndex}-${selfState.currentQuestionIndex}`]; }
+        
         function nextSelf() {
             let area = SELF_ASSESSMENT_AREAS[selfState.currentAreaIndex];
             if (selfState.currentQuestionIndex + 1 < area.questions.length) selfState.currentQuestionIndex++;
@@ -312,12 +273,14 @@
             else finishSelf();
             render();
         }
+        
         function prevSelf() {
             if (selfState.currentQuestionIndex > 0) selfState.currentQuestionIndex--;
             else if (selfState.currentAreaIndex > 0) { selfState.currentAreaIndex--; selfState.currentQuestionIndex = SELF_ASSESSMENT_AREAS[selfState.currentAreaIndex].questions.length - 1; }
             render();
         }
-        function finishSelf() {
+        
+        async function finishSelf() {
             let areaScores = [], areaNames = ["Осознание","Стратегия","Реинжиниринг","Проектирование","Внедрение","Методология","Отраслевые","Soft skills"];
             for (let a=0; a<SELF_ASSESSMENT_AREAS.length; a++) {
                 let sum=0, count=0;
@@ -328,17 +291,18 @@
             let weak = areaScores.filter(s=>s<6).length;
             let rec = weak===0 ? "Отлично! Продолжайте развиваться!" : "Рекомендуется обратить внимание:\n" + areaScores.map((s,i)=>s<6?`• ${areaNames[i]} (${s.toFixed(1)}/10)\n`:'').join('');
             let result = { id: Date.now(), date: new Date().toLocaleString(), areaScores, overallScore: overall, recommendations: rec, type: 'self' };
-            userResults.selfResults.unshift(result); saveResults();
+            if (currentUser) await saveResultToFirestore(currentUser.uid, result);
             selfState.result = result; selfState.isActive = false; render();
         }
+        
         function startSelf() { selfState = { ratings: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: true, result: null }; render(); }
 
-        // ========== РЕКОМЕНДАЦИИ ==========
+        // ========== ГЕНЕРАЦИЯ РЕКОМЕНДАЦИЙ ==========
         function generateRec() {
             if(userResults.testResults.length===0){ alert("Сначала пройдите тест!"); return; }
             let last = userResults.testResults[0];
             let areas = ["Осознание","Стратегия","Реинжиниринг","Проектирование","Внедрение","Методология","Отраслевые","Soft skills"];
-            let text = `**Персональные рекомендации для ${auth.currentUser?.fullName || 'пользователя'}**\n\n📊 Результат: ${last.overallScore}%\n\n`;
+            let text = `**Персональные рекомендации для ${currentUser?.email || 'пользователя'}**\n\n📊 Результат: ${last.overallScore}%\n\n`;
             for(let i=0;i<last.areaScores.length;i++){
                 let emoji = last.areaScores[i]>=80?'🟢':(last.areaScores[i]>=60?'🟡':'🔴');
                 text += `${emoji} ${areas[i]}: ${last.areaScores[i]}%\n`;
@@ -346,7 +310,7 @@
             }
             text += `\n💡 ${last.overallScore>=80 ? "Отличный результат! Продолжайте!" : (last.overallScore>=60 ? "Хорошо! Обратите внимание на слабые области" : "Рекомендуется пройти обучение")}`;
             userResults.recommendations.unshift({ id: Date.now(), date: new Date().toLocaleString(), text });
-            saveResults(); render();
+            render();
         }
 
         // ========== ИСТОРИЯ ==========
@@ -356,10 +320,45 @@
             return [...t,...s].sort((a,b)=>b.id-a.id);
         }
 
+        // ========== АВТОРИЗАЦИЯ ==========
+        async function handleLogin(email, password) {
+            try {
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                currentUser = userCredential.user;
+                await loadUserResults(currentUser.uid);
+                render();
+            } catch (error) {
+                alert("Ошибка входа: " + error.message);
+            }
+        }
+
+        async function handleRegister(email, password, fullName) {
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                currentUser = userCredential.user;
+                await setDoc(doc(db, "users", currentUser.uid), {
+                    email: email,
+                    fullName: fullName,
+                    createdAt: new Date()
+                });
+                await loadUserResults(currentUser.uid);
+                render();
+            } catch (error) {
+                alert("Ошибка регистрации: " + error.message);
+            }
+        }
+
+        async function handleLogout() {
+            await signOut(auth);
+            currentUser = null;
+            currentTab = 'login';
+            render();
+        }
+
         // ========== ОТРИСОВКА ==========
         function render() {
-            let app = document.getElementById('app');
-            if (!auth.isLoggedIn) {
+            const app = document.getElementById('app');
+            if (!currentUser) {
                 if(currentTab === 'register') app.innerHTML = renderRegister();
                 else app.innerHTML = renderLogin();
                 return;
@@ -375,8 +374,7 @@
                 </div>`;
             
             if(currentTab === 'test'){
-                if(isLoadingQuestions && testState.areas.length === 0) html += renderLoading();
-                else if(loadError) html += renderError(loadError);
+                if(isLoadingQuestions && testAreas.length === 0) html += renderLoading();
                 else if(testState.isActive) html += renderTestTaking();
                 else if(testState.result) html += renderTestResult();
                 else html += renderTestDashboard();
@@ -391,11 +389,9 @@
             app.innerHTML = html + `</div>`;
         }
 
-        function renderLoading() { return `<div class="card loading"><div class="spinner"></div><p>Загрузка вопросов из Google Sheets...</p></div>`; }
-        function renderError(msg) { return `<div class="card text-center"><p style="color:red">❌ ${msg}</p><button class="btn btn-primary mt-4" onclick="location.reload()">Повторить</button></div>`; }
         function renderLogin() { return `<div class="container"><div class="card text-center"><div style="font-size:60px">🎓</div><h1>CSM 2.0</h1><p style="color:#666;margin-bottom:30px">Система оценки компетенций</p><div class="input-group"><label>Email</label><input id="loginEmail" type="email"></div><div class="input-group"><label>Пароль</label><input id="loginPassword" type="password"></div><button class="btn btn-primary" onclick="window.handleLogin()">Войти</button><p style="margin-top:20px">Нет аккаунта? <button class="btn-secondary" style="display:inline-block;width:auto;padding:5px 15px" onclick="window.switchTab('register')">Регистрация</button></p></div></div>`; }
         function renderRegister() { return `<div class="container"><div class="card text-center"><div style="font-size:60px">📝</div><h1>Регистрация</h1><div class="input-group"><label>ФИО</label><input id="regName"></div><div class="input-group"><label>Email</label><input id="regEmail" type="email"></div><div class="input-group"><label>Пароль</label><input id="regPassword" type="password"></div><div class="input-group"><label>Подтвердите</label><input id="regConfirm" type="password"></div><button class="btn btn-primary" onclick="window.handleRegister()">Зарегистрироваться</button><p style="margin-top:20px">Уже есть аккаунт? <button class="btn-secondary" style="display:inline-block;width:auto;padding:5px 15px" onclick="window.switchTab('login')">Войти</button></p></div></div>`; }
-        function renderTestDashboard() { return `<div class="card text-center"><div style="font-size:60px">📝</div><h1>Тестирование CSM 2.0</h1><p style="color:#666;margin-bottom:20px">Проверка знаний по 8 областям компетенций</p><div class="info-box"><div class="info-box-title">📚 Вопросы загружаются из Google Sheets</div><div class="info-text">• 8 областей компетенций<br>• Тестовые вопросы с вариантами ответов<br>• Мгновенный результат</div></div><button class="btn btn-primary" onclick="startTest()">▶ Начать тестирование</button></div>`; }
+        function renderTestDashboard() { return `<div class="card text-center"><div style="font-size:60px">📝</div><h1>Тестирование CSM 2.0</h1><p style="color:#666;margin-bottom:20px">Проверка знаний по 8 областям компетенций</p><div class="info-box"><div class="info-box-title">📚 Вопросы загружаются из Google Sheets</div><div class="info-text">• 8 областей компетенций<br>• Тестовые вопросы<br>• Мгновенный результат</div></div><button class="btn btn-primary" onclick="startTest()">▶ Начать тестирование</button></div>`; }
         function renderTestTaking() { let q = getCurrentQuestion(), a = testState.answers[q?.id], area = testState.areas[testState.currentAreaIndex]; if(!q) return ''; return `<div class="card"><div class="progress-bar"><div class="progress-fill" style="width:${getTestProgress()}%"></div></div><div class="progress-text"><span>${area.name}</span><span>${testState.currentQuestionIndex+1}/${area.questions.length}</span></div><div class="question-card"><div class="question-text">${q.text}</div>${q.options.map(opt=>`<div class="option ${a===opt?'selected':''}" onclick="selectAnswer(${q.id},'${opt.replace(/'/g,"\\'")}')"><div class="option-radio"></div><span>${opt}</span></div>`).join('')}</div><div class="flex gap-2">${(testState.currentQuestionIndex>0||testState.currentAreaIndex>0)?`<button class="btn btn-secondary" onclick="prevQuestion()">← Назад</button>`:''}<div style="flex:1"></div><button class="btn btn-primary" onclick="nextQuestion()" ${!a?'disabled style="opacity:0.5"':''}>${testState.currentAreaIndex===testState.areas.length-1 && testState.currentQuestionIndex===area.questions.length-1?'Завершить →':'Далее →'}</button></div></div>`; }
         function renderTestResult() { let r = testState.result, areas=["Осознание","Стратегия","Реинжиниринг","Проектирование","Внедрение","Методология","Отраслевые","Soft skills"], deg = (r.overallScore/100)*360; return `<div class="card text-center"><h1>📊 Результаты теста</h1><div class="score-circle" style="background:conic-gradient(#667eea ${deg}deg,#e9ecef 0deg)"><div class="score-text">${r.overallScore}%</div></div>${r.areaScores.map((s,i)=>`<div style="margin-bottom:16px"><div class="justify-between flex"><span>${areas[i]}</span><span>${s}%</span></div><div class="progress-bar" style="height:6px"><div class="progress-fill" style="width:${s}%"></div></div></div>`).join('')}<div class="info-box"><div class="info-box-title">💡 Рекомендации</div><div class="info-text">${r.recommendations.replace(/\n/g,'<br>')}</div></div><div class="flex gap-2"><button class="btn btn-secondary" onclick="startTest()">Пройти заново</button><button class="btn btn-primary" onclick="window.switchTab('test'); testState.result=null; render()">На главную</button></div></div>`; }
         function renderSelfDashboard() { return `<div class="card text-center"><div style="font-size:60px">📊</div><h1>Самооценка компетенций</h1><p style="color:#666;margin-bottom:20px">Оцените навыки от 1 до 10</p><div class="info-box"><div class="info-box-title">📌 Что означают оценки?</div><div class="info-text">• 1-2: Не знаю<br>• 3-4: Изучал теорию<br>• 5-6: Применял под руководством<br>• 7-8: Применяю уверенно<br>• 9-10: Могу обучать</div></div><button class="btn btn-primary" onclick="startSelf()">▶ Начать самооценку</button></div>`; }
@@ -403,9 +399,10 @@
         function renderSelfResult() { let r = selfState.result, areas=["Осознание","Стратегия","Реинжиниринг","Проектирование","Внедрение","Методология","Отраслевые","Soft skills"], deg = (r.overallScore/10)*360; return `<div class="card text-center"><h1>📊 Результаты самооценки</h1><div class="score-circle" style="background:conic-gradient(#28a745 ${deg}deg,#e9ecef 0deg)"><div class="score-text" style="color:#28a745">${r.overallScore.toFixed(1)}</div></div><p>из 10</p>${r.areaScores.map((s,i)=>`<div style="margin-bottom:16px"><div class="justify-between flex"><span>${areas[i]}</span><span>${s.toFixed(1)}</span></div><div class="progress-bar" style="height:6px"><div class="progress-fill" style="width:${s*10}%;background:#28a745"></div></div></div>`).join('')}<div class="info-box" style="background:#e8f5e9"><div class="info-box-title">💡 Рекомендации</div><div class="info-text">${r.recommendations.replace(/\n/g,'<br>')}</div></div><div class="flex gap-2"><button class="btn btn-secondary" onclick="startSelf()">Пройти заново</button><button class="btn btn-primary" onclick="window.switchTab('self'); selfState.result=null; render()">На главную</button></div></div>`; }
         function renderRecommendations() { if(userResults.recommendations.length===0) return `<div class="card text-center"><div style="font-size:60px">⭐</div><h1>Рекомендации</h1><p style="color:#666">Нет рекомендаций</p><button class="btn btn-primary mt-4" onclick="generateRec()">✨ Получить</button></div>`; return `<div class="card"><div class="justify-between flex" style="margin-bottom:20px"><h1>⭐ Рекомендации</h1><button class="btn btn-primary" style="width:auto;padding:10px 20px" onclick="generateRec()">✨ Новые</button></div>${userResults.recommendations.map(rec=>`<div class="history-item" onclick="showRecModal(${rec.id})"><div class="justify-between flex"><div><strong>${rec.date}</strong><p style="font-size:14px;color:#666">Персональные рекомендации</p></div><span>→</span></div></div>`).join('')}</div><div id="recModal" class="modal"><div class="modal-content"><div class="justify-between flex"><h2>Рекомендации</h2><button onclick="closeRecModal()" style="background:none;border:none;font-size:24px;cursor:pointer">✕</button></div><div id="recText" class="info-text"></div></div></div>`; }
         function renderHistory() { let h = getAllHistory(); if(h.length===0) return `<div class="card text-center"><div style="font-size:60px">📜</div><h1>История</h1><p style="color:#666">Нет результатов</p></div>`; return `<div class="card"><h1>📜 История результатов</h1>${h.map(item=>`<div class="history-item" onclick="showHistoryModal(${item.id},'${item.type}')"><div class="justify-between flex"><div><span style="font-size:20px;margin-right:10px">${item.icon}</span><strong>${item.typeName}</strong><p style="font-size:12px;color:#666">${item.date}</p></div><span style="font-size:20px;font-weight:bold;color:${item.type==='test'?'#667eea':'#28a745'}">${item.type==='test'?item.overallScore+'%':item.overallScore.toFixed(1)+'/10'}</span></div></div>`).join('')}</div><div id="historyModal" class="modal"><div class="modal-content"><div class="justify-between flex"><h2 id="modalTitle">Детали</h2><button onclick="closeHistoryModal()" style="background:none;border:none;font-size:24px;cursor:pointer">✕</button></div><div id="modalContent"></div></div></div>`; }
-        function renderProfile() { return `<div class="card text-center"><div style="font-size:80px">👤</div><h1>${auth.currentUser?.fullName || 'Пользователь'}</h1><p style="color:#666;margin-bottom:30px">${auth.currentUser?.email || ''}</p><div class="info-box"><div class="info-box-title">📊 Статистика</div><div class="info-text">• Тестов: ${userResults.testResults.length}<br>• Самооценок: ${userResults.selfResults.length}<br>• Рекомендаций: ${userResults.recommendations.length}</div></div><button class="btn btn-danger" onclick="handleLogout()">🚪 Выйти</button></div>`; }
+        function renderProfile() { return `<div class="card text-center"><div style="font-size:80px">👤</div><h1>${currentUser?.email || 'Пользователь'}</h1><p style="color:#666;margin-bottom:30px">${currentUser?.email || ''}</p><div class="info-box"><div class="info-box-title">📊 Статистика</div><div class="info-text">• Тестов: ${userResults.testResults.length}<br>• Самооценок: ${userResults.selfResults.length}<br>• Рекомендаций: ${userResults.recommendations.length}</div></div><button class="btn btn-danger" onclick="handleLogout()">🚪 Выйти</button></div>`; }
+        function renderLoading() { return `<div class="card loading"><div class="spinner"></div><p>Загрузка вопросов из Google Sheets...</p></div>`; }
 
-        // МОДАЛЬНЫЕ ОКНА
+        // Модальные окна
         window.showHistoryModal = (id, type) => {
             let item = type === 'test' ? userResults.testResults.find(r=>r.id===id) : userResults.selfResults.find(r=>r.id===id);
             let areas = ["Осознание","Стратегия","Реинжиниринг","Проектирование","Внедрение","Методология","Отраслевые","Soft skills"];
@@ -420,17 +417,31 @@
         window.showRecModal = (id) => { let rec = userResults.recommendations.find(r=>r.id===id); if(rec){ document.getElementById('recText').innerHTML = `<p style="color:#666;margin-bottom:16px">${rec.date}</p>${rec.text.replace(/\n/g,'<br>')}`; document.getElementById('recModal').classList.add('active'); } };
         window.closeRecModal = () => document.getElementById('recModal').classList.remove('active');
         
-        // ГЛОБАЛЬНЫЕ
+        // Глобальные функции
         window.switchTab = (tab) => { currentTab = tab; render(); };
-        window.handleLogin = () => { let email = document.getElementById('loginEmail')?.value, pwd = document.getElementById('loginPassword')?.value; if(email && pwd && auth.login(email,pwd)) render(); else alert('Неверный email или пароль'); };
-        window.handleRegister = () => { let name = document.getElementById('regName')?.value, email = document.getElementById('regEmail')?.value, pwd = document.getElementById('regPassword')?.value, confirm = document.getElementById('regConfirm')?.value; if(pwd !== confirm) alert('Пароли не совпадают'); else if(auth.register(email,pwd,name)) { alert('Регистрация успешна!'); window.switchTab('login'); } else alert('Пользователь уже существует'); };
-        window.handleLogout = () => { auth.logout(); render(); };
+        window.handleLogin = () => { let email = document.getElementById('loginEmail')?.value, pwd = document.getElementById('loginPassword')?.value; if(email && pwd) handleLogin(email, pwd); else alert('Введите email и пароль'); };
+        window.handleRegister = () => { let name = document.getElementById('regName')?.value, email = document.getElementById('regEmail')?.value, pwd = document.getElementById('regPassword')?.value, confirm = document.getElementById('regConfirm')?.value; if(pwd !== confirm) alert('Пароли не совпадают'); else if(email && pwd && name) handleRegister(email, pwd, name); else alert('Заполните все поля'); };
+        window.handleLogout = handleLogout;
         
         window.selectAnswer = selectAnswer; window.nextQuestion = nextQuestion; window.prevQuestion = prevQuestion; window.startTest = startTest;
         window.setSelfRating = setSelfRating; window.nextSelf = nextSelf; window.prevSelf = prevSelf; window.startSelf = startSelf;
         window.generateRec = generateRec;
         
-        auth.loadSavedUser();
+        // Следим за состоянием авторизации
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                await loadUserResults(user.uid);
+            } else {
+                currentUser = null;
+                testState = { answers: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: false, result: null, areas: [] };
+                selfState = { ratings: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: false, result: null };
+            }
+            render();
+        });
+        
+        // Загрузка вопросов при старте
+        loadQuestionsFromGoogleSheets();
         render();
     </script>
 </body>
