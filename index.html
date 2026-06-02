@@ -7,7 +7,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, collection, addDoc, getDocs, query, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, query, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBir4RPFm_SqEOob0vjemiw4XXjSbc7v70",
@@ -29,6 +29,7 @@
         window.signOut = signOut;
         window.onAuthStateChanged = onAuthStateChanged;
         window.doc = doc;
+        window.getDoc = getDoc;
         window.setDoc = setDoc;
         window.collection = collection;
         window.addDoc = addDoc;
@@ -103,6 +104,7 @@
         let testAreas = [];
         let isLoadingQuestions = false;
         let currentUser = null;
+        let currentUserName = "Пользователь";
         let currentTab = 'test';
         let testState = { answers: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: false, result: null, areas: [] };
         let selfState = { ratings: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: false, result: null };
@@ -172,7 +174,6 @@
                     });
                 }
                 
-                // ЗАГРУЖАЕМ РЕКОМЕНДАЦИИ
                 userResults.recommendations = [];
                 const recQuery = query(collection(db, "users", uid, "recommendations"), orderBy("date", "desc"));
                 const recSnapshot = await getDocs(recQuery);
@@ -302,7 +303,7 @@
             
             let last = userResults.testResults[0];
             let areas = ["Осознание","Стратегия","Реинжиниринг","Проектирование","Внедрение","Методология","Отраслевые","Soft skills"];
-            let text = `**Персональные рекомендации для ${currentUser?.email || 'пользователя'}**\n\n📊 **Результат теста:** ${last.overallScore}%\n\n`;
+            let text = `**Персональные рекомендации для ${currentUserName}**\n\n📊 **Результат теста:** ${last.overallScore}%\n\n`;
             
             for(let i = 0; i < last.areaScores.length; i++) {
                 let emoji = last.areaScores[i] >= 80 ? '🟢' : (last.areaScores[i] >= 60 ? '🟡' : '🔴');
@@ -340,6 +341,12 @@
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 currentUser = userCredential.user;
                 await loadUserResults(currentUser.uid);
+                const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+                if (userDoc.exists()) {
+                    currentUserName = userDoc.data().fullName || currentUser.email || "Пользователь";
+                } else {
+                    currentUserName = currentUser.email || "Пользователь";
+                }
                 render();
             } catch (error) { alert("Ошибка: " + error.message); }
         }
@@ -349,12 +356,13 @@
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 currentUser = userCredential.user;
                 await setDoc(doc(db, "users", currentUser.uid), { email: email, fullName: fullName, createdAt: new Date() });
+                currentUserName = fullName;
                 await loadUserResults(currentUser.uid);
                 render();
             } catch (error) { alert("Ошибка: " + error.message); }
         }
 
-        async function handleLogout() { await signOut(auth); currentUser = null; currentTab = 'login'; render(); }
+        async function handleLogout() { await signOut(auth); currentUser = null; currentUserName = "Пользователь"; currentTab = 'login'; render(); }
 
         function render() {
             const app = document.getElementById('app');
@@ -406,7 +414,9 @@
         }
         
         function renderHistory() { let h = getAllHistory(); if(h.length===0) return `<div class="card text-center"><div style="font-size:60px">📜</div><h1>История</h1><p style="color:#666">Нет результатов</p></div>`; return `<div class="card"><h1>📜 История результатов</h1>${h.map(item=>`<div class="history-item" onclick="showHistoryModal('${item.id}','${item.type}')"><div class="justify-between flex"><div><span style="font-size:20px;margin-right:10px">${item.icon}</span><strong>${item.typeName}</strong><p style="font-size:12px;color:#666">${item.date}</p></div><span style="font-size:20px;font-weight:bold;color:${item.type==='test'?'#667eea':'#28a745'}">${item.type==='test'?item.overallScore+'%':item.overallScore.toFixed(1)+'/10'}</span></div></div>`).join('')}</div><div id="historyModal" class="modal"><div class="modal-content"><div class="justify-between flex"><h2 id="modalTitle">Детали</h2><button onclick="closeHistoryModal()" style="background:none;border:none;font-size:24px;cursor:pointer">✕</button></div><div id="modalContent"></div></div></div>`; }
-        function renderProfile() { return `<div class="card text-center"><div style="font-size:80px">👤</div><h1>${currentUser?.email || 'Пользователь'}</h1><p style="color:#666;margin-bottom:30px">${currentUser?.email || ''}</p><div class="info-box"><div class="info-box-title">📊 Статистика</div><div class="info-text">• Тестов: ${userResults.testResults.length}<br>• Самооценок: ${userResults.selfResults.length}<br>• Рекомендаций: ${userResults.recommendations.length}</div></div><button class="btn btn-danger" onclick="handleLogout()">🚪 Выйти</button></div>`; }
+        
+        function renderProfile() { return `<div class="card text-center"><div style="font-size:80px">👤</div><h1>${currentUserName}</h1><p style="color:#666;margin-bottom:30px">${currentUser?.email || ''}</p><div class="info-box"><div class="info-box-title">📊 Статистика</div><div class="info-text">• Тестов: ${userResults.testResults.length}<br>• Самооценок: ${userResults.selfResults.length}<br>• Рекомендаций: ${userResults.recommendations.length}</div></div><button class="btn btn-danger" onclick="handleLogout()">🚪 Выйти</button></div>`; }
+        
         function renderLoading() { return `<div class="card loading"><div class="spinner"></div><p>Загрузка вопросов из Google Sheets...</p></div>`; }
 
         window.showHistoryModal = (id, type) => {
@@ -440,8 +450,21 @@
         window.setSelfRating = setSelfRating; window.nextSelf = nextSelf; window.prevSelf = prevSelf; window.startSelf = startSelf;
         
         onAuthStateChanged(auth, async (user) => {
-            if (user) { currentUser = user; await loadUserResults(user.uid); }
-            else { currentUser = null; testState = { answers: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: false, result: null, areas: [] }; selfState = { ratings: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: false, result: null }; }
+            if (user) { 
+                currentUser = user; 
+                await loadUserResults(user.uid);
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                if (userDoc.exists()) {
+                    currentUserName = userDoc.data().fullName || user.email || "Пользователь";
+                } else {
+                    currentUserName = user.email || "Пользователь";
+                }
+            } else { 
+                currentUser = null; 
+                currentUserName = "Пользователь";
+                testState = { answers: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: false, result: null, areas: [] }; 
+                selfState = { ratings: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: false, result: null }; 
+            }
             render();
         });
         
