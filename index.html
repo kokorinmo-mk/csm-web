@@ -6,12 +6,10 @@
     <title>CSM 2.0 - Оценка компетенций</title>
     <!-- Firebase SDK -->
     <script type="module">
-        // Импорт Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, query, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-        // ВАША КОНФИГУРАЦИЯ FIREBASE
         const firebaseConfig = {
             apiKey: "AIzaSyBir4RPFm_SqEOob0vjemiw4XXjSbc7v70",
             authDomain: "csm20-4a73d.firebaseapp.com",
@@ -22,12 +20,10 @@
             measurementId: "G-S587WRP8DQ"
         };
 
-        // Инициализация Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // Сделаем функции и переменные глобальными
         window.auth = auth;
         window.db = db;
         window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
@@ -105,7 +101,6 @@
     <div id="app"></div>
 
     <script type="module">
-        // ========== ДАННЫЕ ДЛЯ САМООЦЕНКИ ==========
         const SELF_ASSESSMENT_AREAS = [
             { name: "Область 1. Осознание (тренды)", questions: [ "Понимаю тренды: AI, Big Data, IoT, Cloud", "Понимаю цели цифровой трансформации", "Знаю отраслевые кейсы" ] },
             { name: "Область 2. Стратегия", questions: [ "Мыслю стратегически на 3-5 лет", "Знаю стратегию компании", "Могу описать бизнес-модель", "Нахожу точки роста", "Понимаю цифровые роли", "Разделяю человекоцентричность" ] },
@@ -117,29 +112,23 @@
             { name: "Область 8. Soft skills", questions: [ "Владею системным мышлением", "Управляю результатом", "Управляю собой" ] }
         ];
 
-        // ========== URL ДЛЯ ЗАГРУЗКИ ВОПРОСОВ ИЗ GOOGLE SHEETS ==========
         const TEST_QUESTIONS_URL = "https://script.google.com/macros/s/AKfycbymZueJVozXFoH2wxfJM3jAGXg08mhwrzVAQMKmpR7mm4XQWQKNe-AHYz-iryA8QVqUYg/exec";
 
         let testAreas = [];
         let isLoadingQuestions = false;
-        
-        // Состояние пользователя
         let currentUser = null;
         let currentTab = 'test';
         let testState = { answers: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: false, result: null, areas: [] };
         let selfState = { ratings: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: false, result: null };
         let userResults = { testResults: [], selfResults: [], recommendations: [] };
 
-        // ========== ЗАГРУЗКА ВОПРОСОВ ИЗ GOOGLE SHEETS ==========
         async function loadQuestionsFromGoogleSheets() {
             isLoadingQuestions = true;
             try {
                 const response = await fetch(TEST_QUESTIONS_URL);
                 const serverAreas = await response.json();
                 testAreas = convertServerAreasToTestAreas(serverAreas);
-            } catch (error) {
-                console.error("Ошибка загрузки:", error);
-            }
+            } catch (error) { console.error("Ошибка загрузки:", error); }
             isLoadingQuestions = false;
             render();
         }
@@ -153,13 +142,7 @@
                 for (let q of serverArea.closed) {
                     const correctIndex = getIndexFromLetter(q.correct);
                     const correctAnswerText = (correctIndex >= 0 && correctIndex < q.options.length) ? q.options[correctIndex] : (q.options[0] || "");
-                    questions.push({
-                        id: questionId++,
-                        text: q.text,
-                        options: q.options,
-                        correctAnswer: correctAnswerText,
-                        areaId: areaId + 1
-                    });
+                    questions.push({ id: questionId++, text: q.text, options: q.options, correctAnswer: correctAnswerText, areaId: areaId + 1 });
                 }
                 result.push({ id: areaId + 1, name: serverArea.name, questions: questions });
             }
@@ -171,37 +154,47 @@
             return map[letter.trim().toUpperCase()] ?? -1;
         }
 
-        // ========== ЗАГРУЗКА РЕЗУЛЬТАТОВ ИЗ FIRESTORE ==========
         async function loadUserResults(uid) {
             try {
-                const resultsQuery = query(collection(db, "users", uid, "results"), orderBy("date", "desc"));
-                const snapshot = await getDocs(resultsQuery);
                 userResults.testResults = [];
                 userResults.selfResults = [];
-                userResults.recommendations = [];
                 
-                for (const docSnap of snapshot.docs) {
+                // Загружаем тесты из testResults (как в iOS приложении)
+                const testQuery = query(collection(db, "users", uid, "testResults"), orderBy("date", "desc"));
+                const testSnapshot = await getDocs(testQuery);
+                for (const docSnap of testSnapshot.docs) {
                     const data = docSnap.data();
-                    const result = {
+                    userResults.testResults.push({
                         id: docSnap.id,
                         date: data.date?.toDate().toLocaleString() || new Date().toLocaleString(),
-                        areaScores: data.areaScores,
-                        overallScore: data.overallScore,
+                        areaScores: data.areaScores || [],
+                        overallScore: data.overallScore || 0,
                         recommendations: data.recommendations || "",
-                        type: data.type
-                    };
-                    if (data.type === 'test') userResults.testResults.push(result);
-                    else if (data.type === 'self') userResults.selfResults.push(result);
+                        type: 'test'
+                    });
                 }
-            } catch (error) {
-                console.error("Ошибка загрузки результатов:", error);
-            }
+                
+                // Загружаем самооценки из results
+                const selfQuery = query(collection(db, "users", uid, "results"), orderBy("date", "desc"));
+                const selfSnapshot = await getDocs(selfQuery);
+                for (const docSnap of selfSnapshot.docs) {
+                    const data = docSnap.data();
+                    userResults.selfResults.push({
+                        id: docSnap.id,
+                        date: data.date?.toDate().toLocaleString() || new Date().toLocaleString(),
+                        areaScores: data.areaScores || [],
+                        overallScore: data.overallScore || 0,
+                        recommendations: data.recommendations || "",
+                        type: 'self'
+                    });
+                }
+            } catch (error) { console.error("Ошибка загрузки:", error); }
         }
 
-        // ========== СОХРАНЕНИЕ РЕЗУЛЬТАТА В FIRESTORE ==========
         async function saveResultToFirestore(uid, result) {
             try {
-                await addDoc(collection(db, "users", uid, "results"), {
+                const collectionName = result.type === 'test' ? 'testResults' : 'results';
+                await addDoc(collection(db, "users", uid, collectionName), {
                     type: result.type,
                     date: Timestamp.now(),
                     overallScore: result.type === 'test' ? result.overallScore : Math.round(result.overallScore * 10),
@@ -209,12 +202,9 @@
                     recommendations: result.recommendations || ""
                 });
                 await loadUserResults(uid);
-            } catch (error) {
-                console.error("Ошибка сохранения:", error);
-            }
+            } catch (error) { console.error("Ошибка сохранения:", error); }
         }
 
-        // ========== ФУНКЦИИ ТЕСТА ==========
         function getTotalQuestions() { return testState.areas.reduce((s, a) => s + a.questions.length, 0); }
         function getAnsweredCount() { return Object.keys(testState.answers).length; }
         function getTestProgress() { return getTotalQuestions() ? (getAnsweredCount() / getTotalQuestions()) * 100 : 0; }
@@ -245,8 +235,7 @@
                 areaScores.push(Math.round((correct / area.questions.length) * 100));
             }
             let overall = Math.round(areaScores.reduce((a,b)=>a+b,0)/areaScores.length);
-            let weak = areaScores.filter(s=>s<60).length;
-            let rec = weak === 0 ? "Отлично! Все компетенции на высоком уровне!" : "Рекомендуется уделить внимание:\n" + areaScores.map((s,i)=>s<60?`• ${areaNames[i]} (${s}%)\n`:'').join('');
+            let rec = "Рекомендации: " + areaScores.map((s,i)=>s<60?`${areaNames[i]} (${s}%) `:'').join('');
             let result = { id: Date.now(), date: new Date().toLocaleString(), areaScores, overallScore: overall, recommendations: rec, type: 'test' };
             if (currentUser) await saveResultToFirestore(currentUser.uid, result);
             testState.result = result; testState.isActive = false; render();
@@ -258,7 +247,6 @@
             render();
         }
 
-        // ========== САМООЦЕНКА ==========
         function getTotalSelf() { return SELF_ASSESSMENT_AREAS.reduce((s,a)=>s+a.questions.length,0); }
         function getAnsweredSelf() { return Object.keys(selfState.ratings).length; }
         function getSelfProgress() { return getTotalSelf() ? (getAnsweredSelf() / getTotalSelf()) * 100 : 0; }
@@ -281,15 +269,14 @@
         }
         
         async function finishSelf() {
-            let areaScores = [], areaNames = ["Осознание","Стратегия","Реинжиниринг","Проектирование","Внедрение","Методология","Отраслевые","Soft skills"];
+            let areaScores = [];
             for (let a=0; a<SELF_ASSESSMENT_AREAS.length; a++) {
                 let sum=0, count=0;
                 for (let q=0; q<SELF_ASSESSMENT_AREAS[a].questions.length; q++) { let r = selfState.ratings[`${a}-${q}`]; if(r){ sum+=r; count++; } }
                 areaScores.push(count>0 ? sum/count : 0);
             }
             let overall = areaScores.reduce((a,b)=>a+b,0)/areaScores.length;
-            let weak = areaScores.filter(s=>s<6).length;
-            let rec = weak===0 ? "Отлично! Продолжайте развиваться!" : "Рекомендуется обратить внимание:\n" + areaScores.map((s,i)=>s<6?`• ${areaNames[i]} (${s.toFixed(1)}/10)\n`:'').join('');
+            let rec = "Рекомендации: " + areaScores.map((s,i)=>s<6?`${SELF_ASSESSMENT_AREAS[i].name} (${s.toFixed(1)}/10) `:'').join('');
             let result = { id: Date.now(), date: new Date().toLocaleString(), areaScores, overallScore: overall, recommendations: rec, type: 'self' };
             if (currentUser) await saveResultToFirestore(currentUser.uid, result);
             selfState.result = result; selfState.isActive = false; render();
@@ -297,65 +284,46 @@
         
         function startSelf() { selfState = { ratings: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: true, result: null }; render(); }
 
-        // ========== ГЕНЕРАЦИЯ РЕКОМЕНДАЦИЙ ==========
         function generateRec() {
             if(userResults.testResults.length===0){ alert("Сначала пройдите тест!"); return; }
             let last = userResults.testResults[0];
             let areas = ["Осознание","Стратегия","Реинжиниринг","Проектирование","Внедрение","Методология","Отраслевые","Soft skills"];
-            let text = `**Персональные рекомендации для ${currentUser?.email || 'пользователя'}**\n\n📊 Результат: ${last.overallScore}%\n\n`;
+            let text = `Рекомендации для ${currentUser?.email}:\nРезультат: ${last.overallScore}%\n\n`;
             for(let i=0;i<last.areaScores.length;i++){
-                let emoji = last.areaScores[i]>=80?'🟢':(last.areaScores[i]>=60?'🟡':'🔴');
-                text += `${emoji} ${areas[i]}: ${last.areaScores[i]}%\n`;
-                if(last.areaScores[i]<60) text += `   → Рекомендуется изучить материалы\n`;
+                text += `${areas[i]}: ${last.areaScores[i]}%\n`;
+                if(last.areaScores[i]<60) text += `→ Нужно улучшить\n`;
             }
-            text += `\n💡 ${last.overallScore>=80 ? "Отличный результат! Продолжайте!" : (last.overallScore>=60 ? "Хорошо! Обратите внимание на слабые области" : "Рекомендуется пройти обучение")}`;
             userResults.recommendations.unshift({ id: Date.now(), date: new Date().toLocaleString(), text });
             render();
         }
 
-        // ========== ИСТОРИЯ ==========
         function getAllHistory() {
-            let t = userResults.testResults.map(r=>({...r, typeName:'Тест', icon:'📝'}));
-            let s = userResults.selfResults.map(r=>({...r, typeName:'Самооценка', icon:'📊'}));
+            let t = userResults.testResults.map(r=>({...r, typeName:'Тест', icon:'📝', type:'test'}));
+            let s = userResults.selfResults.map(r=>({...r, typeName:'Самооценка', icon:'📊', type:'self'}));
             return [...t,...s].sort((a,b)=>b.id-a.id);
         }
 
-        // ========== АВТОРИЗАЦИЯ ==========
         async function handleLogin(email, password) {
             try {
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 currentUser = userCredential.user;
                 await loadUserResults(currentUser.uid);
                 render();
-            } catch (error) {
-                alert("Ошибка входа: " + error.message);
-            }
+            } catch (error) { alert("Ошибка: " + error.message); }
         }
 
         async function handleRegister(email, password, fullName) {
             try {
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 currentUser = userCredential.user;
-                await setDoc(doc(db, "users", currentUser.uid), {
-                    email: email,
-                    fullName: fullName,
-                    createdAt: new Date()
-                });
+                await setDoc(doc(db, "users", currentUser.uid), { email: email, fullName: fullName, createdAt: new Date() });
                 await loadUserResults(currentUser.uid);
                 render();
-            } catch (error) {
-                alert("Ошибка регистрации: " + error.message);
-            }
+            } catch (error) { alert("Ошибка: " + error.message); }
         }
 
-        async function handleLogout() {
-            await signOut(auth);
-            currentUser = null;
-            currentTab = 'login';
-            render();
-        }
+        async function handleLogout() { await signOut(auth); currentUser = null; currentTab = 'login'; render(); }
 
-        // ========== ОТРИСОВКА ==========
         function render() {
             const app = document.getElementById('app');
             if (!currentUser) {
@@ -391,56 +359,46 @@
 
         function renderLogin() { return `<div class="container"><div class="card text-center"><div style="font-size:60px">🎓</div><h1>CSM 2.0</h1><p style="color:#666;margin-bottom:30px">Система оценки компетенций</p><div class="input-group"><label>Email</label><input id="loginEmail" type="email"></div><div class="input-group"><label>Пароль</label><input id="loginPassword" type="password"></div><button class="btn btn-primary" onclick="window.handleLogin()">Войти</button><p style="margin-top:20px">Нет аккаунта? <button class="btn-secondary" style="display:inline-block;width:auto;padding:5px 15px" onclick="window.switchTab('register')">Регистрация</button></p></div></div>`; }
         function renderRegister() { return `<div class="container"><div class="card text-center"><div style="font-size:60px">📝</div><h1>Регистрация</h1><div class="input-group"><label>ФИО</label><input id="regName"></div><div class="input-group"><label>Email</label><input id="regEmail" type="email"></div><div class="input-group"><label>Пароль</label><input id="regPassword" type="password"></div><div class="input-group"><label>Подтвердите</label><input id="regConfirm" type="password"></div><button class="btn btn-primary" onclick="window.handleRegister()">Зарегистрироваться</button><p style="margin-top:20px">Уже есть аккаунт? <button class="btn-secondary" style="display:inline-block;width:auto;padding:5px 15px" onclick="window.switchTab('login')">Войти</button></p></div></div>`; }
-        function renderTestDashboard() { return `<div class="card text-center"><div style="font-size:60px">📝</div><h1>Тестирование CSM 2.0</h1><p style="color:#666;margin-bottom:20px">Проверка знаний по 8 областям компетенций</p><div class="info-box"><div class="info-box-title">📚 Вопросы загружаются из Google Sheets</div><div class="info-text">• 8 областей компетенций<br>• Тестовые вопросы<br>• Мгновенный результат</div></div><button class="btn btn-primary" onclick="startTest()">▶ Начать тестирование</button></div>`; }
+        function renderTestDashboard() { return `<div class="card text-center"><div style="font-size:60px">📝</div><h1>Тестирование CSM 2.0</h1><p style="color:#666;margin-bottom:20px">Проверка знаний по 8 областям</p><button class="btn btn-primary" onclick="startTest()">▶ Начать тестирование</button></div>`; }
         function renderTestTaking() { let q = getCurrentQuestion(), a = testState.answers[q?.id], area = testState.areas[testState.currentAreaIndex]; if(!q) return ''; return `<div class="card"><div class="progress-bar"><div class="progress-fill" style="width:${getTestProgress()}%"></div></div><div class="progress-text"><span>${area.name}</span><span>${testState.currentQuestionIndex+1}/${area.questions.length}</span></div><div class="question-card"><div class="question-text">${q.text}</div>${q.options.map(opt=>`<div class="option ${a===opt?'selected':''}" onclick="selectAnswer(${q.id},'${opt.replace(/'/g,"\\'")}')"><div class="option-radio"></div><span>${opt}</span></div>`).join('')}</div><div class="flex gap-2">${(testState.currentQuestionIndex>0||testState.currentAreaIndex>0)?`<button class="btn btn-secondary" onclick="prevQuestion()">← Назад</button>`:''}<div style="flex:1"></div><button class="btn btn-primary" onclick="nextQuestion()" ${!a?'disabled style="opacity:0.5"':''}>${testState.currentAreaIndex===testState.areas.length-1 && testState.currentQuestionIndex===area.questions.length-1?'Завершить →':'Далее →'}</button></div></div>`; }
-        function renderTestResult() { let r = testState.result, areas=["Осознание","Стратегия","Реинжиниринг","Проектирование","Внедрение","Методология","Отраслевые","Soft skills"], deg = (r.overallScore/100)*360; return `<div class="card text-center"><h1>📊 Результаты теста</h1><div class="score-circle" style="background:conic-gradient(#667eea ${deg}deg,#e9ecef 0deg)"><div class="score-text">${r.overallScore}%</div></div>${r.areaScores.map((s,i)=>`<div style="margin-bottom:16px"><div class="justify-between flex"><span>${areas[i]}</span><span>${s}%</span></div><div class="progress-bar" style="height:6px"><div class="progress-fill" style="width:${s}%"></div></div></div>`).join('')}<div class="info-box"><div class="info-box-title">💡 Рекомендации</div><div class="info-text">${r.recommendations.replace(/\n/g,'<br>')}</div></div><div class="flex gap-2"><button class="btn btn-secondary" onclick="startTest()">Пройти заново</button><button class="btn btn-primary" onclick="window.switchTab('test'); testState.result=null; render()">На главную</button></div></div>`; }
-        function renderSelfDashboard() { return `<div class="card text-center"><div style="font-size:60px">📊</div><h1>Самооценка компетенций</h1><p style="color:#666;margin-bottom:20px">Оцените навыки от 1 до 10</p><div class="info-box"><div class="info-box-title">📌 Что означают оценки?</div><div class="info-text">• 1-2: Не знаю<br>• 3-4: Изучал теорию<br>• 5-6: Применял под руководством<br>• 7-8: Применяю уверенно<br>• 9-10: Могу обучать</div></div><button class="btn btn-primary" onclick="startSelf()">▶ Начать самооценку</button></div>`; }
+        function renderTestResult() { let r = testState.result, areas=["Осознание","Стратегия","Реинжиниринг","Проектирование","Внедрение","Методология","Отраслевые","Soft skills"], deg = (r.overallScore/100)*360; return `<div class="card text-center"><h1>📊 Результаты теста</h1><div class="score-circle" style="background:conic-gradient(#667eea ${deg}deg,#e9ecef 0deg)"><div class="score-text">${r.overallScore}%</div></div>${r.areaScores.map((s,i)=>`<div><div class="justify-between flex"><span>${areas[i]}</span><span>${s}%</span></div><div class="progress-bar"><div class="progress-fill" style="width:${s}%"></div></div></div>`).join('')}<div class="info-box"><div class="info-box-title">💡 Рекомендации</div><div class="info-text">${r.recommendations}</div></div><div class="flex gap-2"><button class="btn btn-secondary" onclick="startTest()">Пройти заново</button><button class="btn btn-primary" onclick="window.switchTab('test'); testState.result=null; render()">На главную</button></div></div>`; }
+        function renderSelfDashboard() { return `<div class="card text-center"><div style="font-size:60px">📊</div><h1>Самооценка</h1><p style="color:#666;margin-bottom:20px">Оцените навыки от 1 до 10</p><div class="info-box"><div class="info-box-title">📌 Шкала</div><div class="info-text">1-2: Не знаю | 3-4: Теория | 5-6: Применял | 7-8: Уверенно | 9-10: Обучаю</div></div><button class="btn btn-primary" onclick="startSelf()">▶ Начать</button></div>`; }
         function renderSelfTaking() { let q = getCurrentSelf(), cur = getCurrentRating(), area = SELF_ASSESSMENT_AREAS[selfState.currentAreaIndex]; return `<div class="card"><div class="progress-bar"><div class="progress-fill" style="width:${getSelfProgress()}%"></div></div><div class="progress-text"><span>${area.name}</span><span>${selfState.currentQuestionIndex+1}/${area.questions.length}</span></div><div class="question-card"><div class="question-text">${q}</div><div class="rating-buttons">${[1,2,3,4,5,6,7,8,9,10].map(r=>`<button class="rating-btn ${cur===r?'selected':''}" onclick="setSelfRating(${selfState.currentAreaIndex},${selfState.currentQuestionIndex},${r})">${r}</button>`).join('')}</div></div><div class="flex gap-2">${(selfState.currentQuestionIndex>0||selfState.currentAreaIndex>0)?`<button class="btn btn-secondary" onclick="prevSelf()">← Назад</button>`:''}<div style="flex:1"></div><button class="btn btn-primary" onclick="nextSelf()" ${!cur?'disabled style="opacity:0.5"':''}>${selfState.currentAreaIndex===SELF_ASSESSMENT_AREAS.length-1 && selfState.currentQuestionIndex===area.questions.length-1?'Завершить →':'Далее →'}</button></div></div>`; }
-        function renderSelfResult() { let r = selfState.result, areas=["Осознание","Стратегия","Реинжиниринг","Проектирование","Внедрение","Методология","Отраслевые","Soft skills"], deg = (r.overallScore/10)*360; return `<div class="card text-center"><h1>📊 Результаты самооценки</h1><div class="score-circle" style="background:conic-gradient(#28a745 ${deg}deg,#e9ecef 0deg)"><div class="score-text" style="color:#28a745">${r.overallScore.toFixed(1)}</div></div><p>из 10</p>${r.areaScores.map((s,i)=>`<div style="margin-bottom:16px"><div class="justify-between flex"><span>${areas[i]}</span><span>${s.toFixed(1)}</span></div><div class="progress-bar" style="height:6px"><div class="progress-fill" style="width:${s*10}%;background:#28a745"></div></div></div>`).join('')}<div class="info-box" style="background:#e8f5e9"><div class="info-box-title">💡 Рекомендации</div><div class="info-text">${r.recommendations.replace(/\n/g,'<br>')}</div></div><div class="flex gap-2"><button class="btn btn-secondary" onclick="startSelf()">Пройти заново</button><button class="btn btn-primary" onclick="window.switchTab('self'); selfState.result=null; render()">На главную</button></div></div>`; }
-        function renderRecommendations() { if(userResults.recommendations.length===0) return `<div class="card text-center"><div style="font-size:60px">⭐</div><h1>Рекомендации</h1><p style="color:#666">Нет рекомендаций</p><button class="btn btn-primary mt-4" onclick="generateRec()">✨ Получить</button></div>`; return `<div class="card"><div class="justify-between flex" style="margin-bottom:20px"><h1>⭐ Рекомендации</h1><button class="btn btn-primary" style="width:auto;padding:10px 20px" onclick="generateRec()">✨ Новые</button></div>${userResults.recommendations.map(rec=>`<div class="history-item" onclick="showRecModal(${rec.id})"><div class="justify-between flex"><div><strong>${rec.date}</strong><p style="font-size:14px;color:#666">Персональные рекомендации</p></div><span>→</span></div></div>`).join('')}</div><div id="recModal" class="modal"><div class="modal-content"><div class="justify-between flex"><h2>Рекомендации</h2><button onclick="closeRecModal()" style="background:none;border:none;font-size:24px;cursor:pointer">✕</button></div><div id="recText" class="info-text"></div></div></div>`; }
-        function renderHistory() { let h = getAllHistory(); if(h.length===0) return `<div class="card text-center"><div style="font-size:60px">📜</div><h1>История</h1><p style="color:#666">Нет результатов</p></div>`; return `<div class="card"><h1>📜 История результатов</h1>${h.map(item=>`<div class="history-item" onclick="showHistoryModal(${item.id},'${item.type}')"><div class="justify-between flex"><div><span style="font-size:20px;margin-right:10px">${item.icon}</span><strong>${item.typeName}</strong><p style="font-size:12px;color:#666">${item.date}</p></div><span style="font-size:20px;font-weight:bold;color:${item.type==='test'?'#667eea':'#28a745'}">${item.type==='test'?item.overallScore+'%':item.overallScore.toFixed(1)+'/10'}</span></div></div>`).join('')}</div><div id="historyModal" class="modal"><div class="modal-content"><div class="justify-between flex"><h2 id="modalTitle">Детали</h2><button onclick="closeHistoryModal()" style="background:none;border:none;font-size:24px;cursor:pointer">✕</button></div><div id="modalContent"></div></div></div>`; }
-        function renderProfile() { return `<div class="card text-center"><div style="font-size:80px">👤</div><h1>${currentUser?.email || 'Пользователь'}</h1><p style="color:#666;margin-bottom:30px">${currentUser?.email || ''}</p><div class="info-box"><div class="info-box-title">📊 Статистика</div><div class="info-text">• Тестов: ${userResults.testResults.length}<br>• Самооценок: ${userResults.selfResults.length}<br>• Рекомендаций: ${userResults.recommendations.length}</div></div><button class="btn btn-danger" onclick="handleLogout()">🚪 Выйти</button></div>`; }
-        function renderLoading() { return `<div class="card loading"><div class="spinner"></div><p>Загрузка вопросов из Google Sheets...</p></div>`; }
+        function renderSelfResult() { let r = selfState.result, areas=["Осознание","Стратегия","Реинжиниринг","Проектирование","Внедрение","Методология","Отраслевые","Soft skills"], deg = (r.overallScore/10)*360; return `<div class="card text-center"><h1>📊 Результаты</h1><div class="score-circle" style="background:conic-gradient(#28a745 ${deg}deg,#e9ecef 0deg)"><div class="score-text" style="color:#28a745">${r.overallScore.toFixed(1)}</div></div><p>из 10</p>${r.areaScores.map((s,i)=>`<div><div class="justify-between flex"><span>${areas[i]}</span><span>${s.toFixed(1)}</span></div><div class="progress-bar"><div class="progress-fill" style="width:${s*10}%;background:#28a745"></div></div></div>`).join('')}<div class="info-box"><div class="info-box-title">💡 Рекомендации</div><div class="info-text">${r.recommendations}</div></div><div class="flex gap-2"><button class="btn btn-secondary" onclick="startSelf()">Заново</button><button class="btn btn-primary" onclick="window.switchTab('self'); selfState.result=null; render()">Главная</button></div></div>`; }
+        function renderRecommendations() { if(userResults.recommendations.length===0) return `<div class="card text-center"><h1>⭐ Рекомендации</h1><p>Нет рекомендаций</p><button class="btn btn-primary" onclick="generateRec()">✨ Получить</button></div>`; return `<div class="card"><div class="justify-between flex"><h1>⭐ Рекомендации</h1><button class="btn btn-primary" style="width:auto" onclick="generateRec()">✨ Новые</button></div>${userResults.recommendations.map(rec=>`<div class="history-item" onclick="showRecModal('${rec.id}')"><div><strong>${rec.date}</strong><p>${rec.text.substring(0,100)}...</p></div></div>`).join('')}</div><div id="recModal" class="modal"><div class="modal-content"><div class="justify-between flex"><h2>Рекомендации</h2><button onclick="closeRecModal()">✕</button></div><div id="recText"></div></div></div>`; }
+        function renderHistory() { let h = getAllHistory(); if(h.length===0) return `<div class="card text-center"><h1>📜 История</h1><p>Нет результатов</p></div>`; return `<div class="card"><h1>📜 История</h1>${h.map(item=>`<div class="history-item" onclick="showHistoryModal('${item.id}','${item.type}')"><div class="justify-between flex"><div><span style="font-size:20px">${item.icon}</span> <strong>${item.typeName}</strong><p style="font-size:12px">${item.date}</p></div><span style="font-size:20px;color:${item.type==='test'?'#667eea':'#28a745'}">${item.type==='test'?item.overallScore+'%':item.overallScore.toFixed(1)+'/10'}</span></div></div>`).join('')}</div><div id="historyModal" class="modal"><div class="modal-content"><div class="justify-between flex"><h2 id="modalTitle">Детали</h2><button onclick="closeHistoryModal()">✕</button></div><div id="modalContent"></div></div></div>`; }
+        function renderProfile() { return `<div class="card text-center"><div style="font-size:80px">👤</div><h1>${currentUser?.email || 'Пользователь'}</h1><div class="info-box"><div class="info-box-title">📊 Статистика</div><div class="info-text">📝 Тестов: ${userResults.testResults.length}<br>📊 Самооценок: ${userResults.selfResults.length}</div></div><button class="btn btn-danger" onclick="handleLogout()">🚪 Выйти</button></div>`; }
+        function renderLoading() { return `<div class="card loading"><div class="spinner"></div><p>Загрузка...</p></div>`; }
 
-        // Модальные окна
         window.showHistoryModal = (id, type) => {
             let item = type === 'test' ? userResults.testResults.find(r=>r.id===id) : userResults.selfResults.find(r=>r.id===id);
             let areas = ["Осознание","Стратегия","Реинжиниринг","Проектирование","Внедрение","Методология","Отраслевые","Soft skills"];
             let modal = document.getElementById('historyModal'), content = document.getElementById('modalContent'), title = document.getElementById('modalTitle');
             if(item){
                 title.innerText = type === 'test' ? 'Результат теста' : 'Результат самооценки';
-                content.innerHTML = `<p style="color:#666;margin-bottom:16px">${item.date}</p><div class="text-center" style="margin-bottom:20px"><span style="font-size:36px;font-weight:bold;color:${type==='test'?'#667eea':'#28a745'}">${type==='test'?item.overallScore+'%':item.overallScore.toFixed(1)+'/10'}</span></div><h3>Детали:</h3>${item.areaScores.map((s,i)=>`<div style="margin-bottom:12px"><div class="justify-between flex"><span>${areas[i]}</span><span>${type==='test'?s+'%':s.toFixed(1)}</span></div><div class="progress-bar" style="height:4px"><div class="progress-fill" style="width:${type==='test'?s:s*10}%"></div></div></div>`).join('')}<div class="info-box" style="margin-top:20px"><div class="info-box-title">💡 Рекомендации</div><div class="info-text">${item.recommendations.replace(/\n/g,'<br>')}</div></div>`;
+                content.innerHTML = `<p>${item.date}</p><div class="text-center"><span style="font-size:36px;font-weight:bold;color:${type==='test'?'#667eea':'#28a745'}">${type==='test'?item.overallScore+'%':item.overallScore.toFixed(1)+'/10'}</span></div><h3>Детали:</h3>${item.areaScores.map((s,i)=>`<div><div class="justify-between flex"><span>${areas[i]}</span><span>${type==='test'?s+'%':s.toFixed(1)}</span></div><div class="progress-bar"><div class="progress-fill" style="width:${type==='test'?s:s*10}%"></div></div></div>`).join('')}<div class="info-box"><div class="info-box-title">💡 Рекомендации</div><div class="info-text">${item.recommendations}</div></div>`;
                 modal.classList.add('active');
             }
         };
         window.closeHistoryModal = () => document.getElementById('historyModal').classList.remove('active');
-        window.showRecModal = (id) => { let rec = userResults.recommendations.find(r=>r.id===id); if(rec){ document.getElementById('recText').innerHTML = `<p style="color:#666;margin-bottom:16px">${rec.date}</p>${rec.text.replace(/\n/g,'<br>')}`; document.getElementById('recModal').classList.add('active'); } };
+        window.showRecModal = (id) => { let rec = userResults.recommendations.find(r=>r.id==id); if(rec){ document.getElementById('recText').innerHTML = `<p>${rec.date}</p>${rec.text.replace(/\n/g,'<br>')}`; document.getElementById('recModal').classList.add('active'); } };
         window.closeRecModal = () => document.getElementById('recModal').classList.remove('active');
         
-        // Глобальные функции
         window.switchTab = (tab) => { currentTab = tab; render(); };
-        window.handleLogin = () => { let email = document.getElementById('loginEmail')?.value, pwd = document.getElementById('loginPassword')?.value; if(email && pwd) handleLogin(email, pwd); else alert('Введите email и пароль'); };
-        window.handleRegister = () => { let name = document.getElementById('regName')?.value, email = document.getElementById('regEmail')?.value, pwd = document.getElementById('regPassword')?.value, confirm = document.getElementById('regConfirm')?.value; if(pwd !== confirm) alert('Пароли не совпадают'); else if(email && pwd && name) handleRegister(email, pwd, name); else alert('Заполните все поля'); };
+        window.handleLogin = () => { let email = document.getElementById('loginEmail')?.value, pwd = document.getElementById('loginPassword')?.value; if(email && pwd) handleLogin(email, pwd); };
+        window.handleRegister = () => { let name = document.getElementById('regName')?.value, email = document.getElementById('regEmail')?.value, pwd = document.getElementById('regPassword')?.value, confirm = document.getElementById('regConfirm')?.value; if(pwd !== confirm) alert('Пароли не совпадают'); else handleRegister(email, pwd, name); };
         window.handleLogout = handleLogout;
         
         window.selectAnswer = selectAnswer; window.nextQuestion = nextQuestion; window.prevQuestion = prevQuestion; window.startTest = startTest;
         window.setSelfRating = setSelfRating; window.nextSelf = nextSelf; window.prevSelf = prevSelf; window.startSelf = startSelf;
         window.generateRec = generateRec;
         
-        // Следим за состоянием авторизации
         onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                currentUser = user;
-                await loadUserResults(user.uid);
-            } else {
-                currentUser = null;
-                testState = { answers: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: false, result: null, areas: [] };
-                selfState = { ratings: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: false, result: null };
-            }
+            if (user) { currentUser = user; await loadUserResults(user.uid); }
+            else { currentUser = null; testState = { answers: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: false, result: null, areas: [] }; selfState = { ratings: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: false, result: null }; }
             render();
         });
         
-        // Загрузка вопросов при старте
         loadQuestionsFromGoogleSheets();
         render();
     </script>
