@@ -100,6 +100,7 @@
         ];
 
         const TEST_QUESTIONS_URL = "https://script.google.com/macros/s/AKfycbymZueJVozXFoH2wxfJM3jAGXg08mhwrzVAQMKmpR7mm4XQWQKNe-AHYz-iryA8QVqUYg/exec";
+        const SERVER_URL = "https://csm-recommendations.onrender.com/recommend";
 
         let testAreas = [];
         let isLoadingQuestions = false;
@@ -109,6 +110,7 @@
         let testState = { answers: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: false, result: null, areas: [] };
         let selfState = { ratings: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: false, result: null };
         let userResults = { testResults: [], selfResults: [], recommendations: [] };
+        let isGeneratingRec = false;
 
         async function loadQuestionsFromGoogleSheets() {
             isLoadingQuestions = true;
@@ -216,6 +218,112 @@
             } catch (error) { console.error("Ошибка сохранения рекомендации:", error); }
         }
 
+        function generateLocalRecommendations(testResult, userName) {
+            const areas = ["Осознание", "Стратегия", "Реинжиниринг", "Проектирование", "Внедрение", "Методология", "Отраслевые", "Soft skills"];
+            let text = `**Персональные рекомендации для ${userName}**\n\n📊 **Результат теста:** ${testResult.overallScore}%\n\n`;
+            
+            const weakAreas = [];
+            const strongAreas = [];
+            
+            for (let i = 0; i < testResult.areaScores.length; i++) {
+                if (testResult.areaScores[i] < 60) {
+                    weakAreas.push(areas[i]);
+                } else if (testResult.areaScores[i] >= 80) {
+                    strongAreas.push(areas[i]);
+                }
+            }
+            
+            if (weakAreas.length > 0) {
+                text += `🔴 **Требуют внимания:**\n`;
+                weakAreas.forEach(area => { text += `   • ${area}\n`; });
+                text += `\n`;
+            }
+            
+            if (strongAreas.length > 0) {
+                text += `🟢 **Сильные стороны:**\n`;
+                strongAreas.forEach(area => { text += `   • ${area}\n`; });
+                text += `\n`;
+            }
+            
+            text += `💡 **Рекомендации:**\n`;
+            
+            if (testResult.overallScore >= 80) {
+                text += `• Отличный результат! Вы демонстрируете высокий уровень компетенций.\n`;
+                text += `• Рекомендуется делиться опытом с коллегами и участвовать в сложных проектах.\n`;
+            } else if (testResult.overallScore >= 60) {
+                text += `• Хороший результат! Обратите внимание на области, требующие развития.\n`;
+                text += `• Пройдите внутренние курсы по выявленным пробелам.\n`;
+            } else {
+                text += `• Рекомендуется пройти базовое обучение по компетенциям CSM.\n`;
+                text += `• Обратитесь к руководителю за индивидуальным планом развития.\n`;
+            }
+            
+            return text;
+        }
+
+        async function generateRec() {
+            if(userResults.testResults.length === 0) { 
+                alert("Сначала пройдите тест!"); 
+                return; 
+            }
+            
+            if (isGeneratingRec) {
+                alert("Рекомендации уже генерируются, подождите...");
+                return;
+            }
+            
+            const lastTest = userResults.testResults[0];
+            isGeneratingRec = true;
+            render();
+            
+            try {
+                console.log("🤖 Отправляем запрос к GigaChat через сервер...");
+                
+                const response = await fetch(SERVER_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        userName: currentUserName,
+                        userEmail: currentUser?.email || "",
+                        testScores: lastTest.areaScores
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                let recommendationText = "";
+                
+                if (data.success && data.recommendations) {
+                    recommendationText = data.recommendations;
+                    console.log("✅ Получены рекомендации от GigaChat");
+                } else {
+                    recommendationText = generateLocalRecommendations(lastTest, currentUserName);
+                }
+                
+                if (currentUser) {
+                    await saveRecommendationToFirestore(currentUser.uid, recommendationText);
+                    await loadUserResults(currentUser.uid);
+                }
+                
+            } catch (error) {
+                console.error("❌ Ошибка:", error);
+                const fallbackText = generateLocalRecommendations(lastTest, currentUserName);
+                
+                if (currentUser) {
+                    await saveRecommendationToFirestore(currentUser.uid, fallbackText);
+                    await loadUserResults(currentUser.uid);
+                }
+                
+                alert("Не удалось подключиться к серверу GigaChat. Рекомендации сгенерированы локально.");
+            } finally {
+                isGeneratingRec = false;
+                render();
+            }
+        }
+
         function getTotalQuestions() { return testState.areas.reduce((s, a) => s + a.questions.length, 0); }
         function getAnsweredCount() { return Object.keys(testState.answers).length; }
         function getTestProgress() { return getTotalQuestions() ? (getAnsweredCount() / getTotalQuestions()) * 100 : 0; }
@@ -295,41 +403,6 @@
         
         function startSelf() { selfState = { ratings: {}, currentAreaIndex: 0, currentQuestionIndex: 0, isActive: true, result: null }; render(); }
 
-        async function generateRec() {
-            if(userResults.testResults.length === 0) { 
-                alert("Сначала пройдите тест!"); 
-                return; 
-            }
-            
-            let last = userResults.testResults[0];
-            let areas = ["Осознание","Стратегия","Реинжиниринг","Проектирование","Внедрение","Методология","Отраслевые","Soft skills"];
-            let text = `**Персональные рекомендации для ${currentUserName}**\n\n📊 **Результат теста:** ${last.overallScore}%\n\n`;
-            
-            for(let i = 0; i < last.areaScores.length; i++) {
-                let emoji = last.areaScores[i] >= 80 ? '🟢' : (last.areaScores[i] >= 60 ? '🟡' : '🔴');
-                text += `${emoji} **${areas[i]}:** ${last.areaScores[i]}%\n`;
-                if(last.areaScores[i] < 60) {
-                    text += `   → Рекомендуется изучить материалы по этой области\n`;
-                }
-            }
-            
-            text += `\n💡 **Общие рекомендации:**\n`;
-            if(last.overallScore >= 80) {
-                text += `• Отличный результат! Продолжайте развиваться\n• Рекомендуется участвовать в сложных проектах\n• Делитесь опытом с коллегами`;
-            } else if(last.overallScore >= 60) {
-                text += `• Хороший результат! Обратите внимание на слабые области\n• Пройдите внутренние курсы по выявленным пробелам\n• Регулярно повторяйте материал`;
-            } else {
-                text += `• Рекомендуется пройти базовое обучение по CSM 2.0\n• Обратитесь к руководителю за индивидуальным планом развития\n• Начните с изучения слабых областей`;
-            }
-            
-            if (currentUser) {
-                await saveRecommendationToFirestore(currentUser.uid, text);
-                await loadUserResults(currentUser.uid);
-            }
-            
-            render();
-        }
-
         function getAllHistory() {
             let t = userResults.testResults.map(r=>({...r, typeName:'Тест', icon:'📝', type:'test'}));
             let s = userResults.selfResults.map(r=>({...r, typeName:'Самооценка', icon:'📊', type:'self'}));
@@ -407,10 +480,13 @@
         function renderSelfResult() { let r = selfState.result, areas=["Осознание","Стратегия","Реинжиниринг","Проектирование","Внедрение","Методология","Отраслевые","Soft skills"], deg = (r.overallScore/10)*360; return `<div class="card text-center"><h1>📊 Результаты самооценки</h1><div class="score-circle" style="background:conic-gradient(#28a745 ${deg}deg,#e9ecef 0deg)"><div class="score-text" style="color:#28a745">${r.overallScore.toFixed(1)}</div></div><p>из 10</p>${r.areaScores.map((s,i)=>`<div style="margin-bottom:16px"><div class="justify-between flex"><span>${areas[i]}</span><span>${s.toFixed(1)}</span></div><div class="progress-bar" style="height:6px"><div class="progress-fill" style="width:${s*10}%;background:#28a745"></div></div></div>`).join('')}<div class="info-box" style="background:#e8f5e9"><div class="info-box-title">💡 Рекомендации</div><div class="info-text">${r.recommendations}</div></div><div class="flex gap-2"><button class="btn btn-secondary" onclick="startSelf()">Пройти заново</button><button class="btn btn-primary" onclick="window.switchTab('self'); selfState.result=null; render()">На главную</button></div></div>`; }
         
         function renderRecommendations() { 
-            if(userResults.recommendations.length === 0) { 
-                return `<div class="card text-center"><div style="font-size:60px">⭐</div><h1>Рекомендации</h1><p style="color:#666;margin-bottom:20px">Нет сохранённых рекомендаций</p><button class="btn btn-primary" onclick="generateRec()">✨ Получить новые рекомендации</button></div>`; 
+            if(isGeneratingRec) {
+                return `<div class="card text-center"><div class="spinner"></div><h1>⭐ Рекомендации</h1><p>Генерация рекомендаций через GigaChat...</p><p style="font-size:12px;color:#666">Это может занять несколько секунд</p></div>`;
             }
-            return `<div class="card"><div class="justify-between flex" style="margin-bottom:20px"><h1>⭐ Рекомендации</h1><button class="btn btn-primary" style="width:auto;padding:10px 20px" onclick="generateRec()">✨ Новые</button></div>${userResults.recommendations.map(rec => `<div class="history-item" onclick="showRecModal('${rec.id}')"><div class="justify-between flex"><div><strong>${rec.date}</strong><p style="font-size:14px;color:#666;margin-top:5px">Персональные рекомендации</p></div><span style="font-size:20px">→</span></div></div>`).join('')}</div><div id="recModal" class="modal"><div class="modal-content"><div class="justify-between flex"><h2>Рекомендации</h2><button onclick="closeRecModal()" style="background:none;border:none;font-size:24px;cursor:pointer">✕</button></div><div id="recText" class="recommendation-text"></div></div></div>`; 
+            if(userResults.recommendations.length === 0) { 
+                return `<div class="card text-center"><div style="font-size:60px">⭐</div><h1>Рекомендации</h1><p style="color:#666;margin-bottom:20px">Нет сохранённых рекомендаций</p><button class="btn btn-primary" onclick="generateRec()">✨ Получить рекомендации от GigaChat</button></div>`; 
+            }
+            return `<div class="card"><div class="justify-between flex" style="margin-bottom:20px"><h1>⭐ Рекомендации</h1><button class="btn btn-primary" style="width:auto;padding:10px 20px" onclick="generateRec()">✨ Новые</button></div>${userResults.recommendations.map(rec => `<div class="history-item" onclick="showRecModal('${rec.id}')"><div class="justify-between flex"><div><strong>${rec.date}</strong><p style="font-size:14px;color:#666;margin-top:5px">Персональные рекомендации от GigaChat</p></div><span style="font-size:20px">→</span></div></div>`).join('')}</div><div id="recModal" class="modal"><div class="modal-content"><div class="justify-between flex"><h2>Рекомендации</h2><button onclick="closeRecModal()" style="background:none;border:none;font-size:24px;cursor:pointer">✕</button></div><div id="recText" class="recommendation-text"></div></div></div>`; 
         }
         
         function renderHistory() { let h = getAllHistory(); if(h.length===0) return `<div class="card text-center"><div style="font-size:60px">📜</div><h1>История</h1><p style="color:#666">Нет результатов</p></div>`; return `<div class="card"><h1>📜 История результатов</h1>${h.map(item=>`<div class="history-item" onclick="showHistoryModal('${item.id}','${item.type}')"><div class="justify-between flex"><div><span style="font-size:20px;margin-right:10px">${item.icon}</span><strong>${item.typeName}</strong><p style="font-size:12px;color:#666">${item.date}</p></div><span style="font-size:20px;font-weight:bold;color:${item.type==='test'?'#667eea':'#28a745'}">${item.type==='test'?item.overallScore+'%':item.overallScore.toFixed(1)+'/10'}</span></div></div>`).join('')}</div><div id="historyModal" class="modal"><div class="modal-content"><div class="justify-between flex"><h2 id="modalTitle">Детали</h2><button onclick="closeHistoryModal()" style="background:none;border:none;font-size:24px;cursor:pointer">✕</button></div><div id="modalContent"></div></div></div>`; }
