@@ -508,11 +508,16 @@
         window.closeHistoryModal = () => document.getElementById('historyModal').classList.remove('active');
         
         window.showRecModal = (id) => { 
-            let rec = userResults.recommendations.find(r => r.id == id); 
+        let rec = userResults.recommendations.find(r => r.id == id); 
             if(rec){ 
-                document.getElementById('recText').innerHTML = `<p style="color:#666;margin-bottom:16px">${rec.date}</p>${rec.text.replace(/\n/g,'<br>')}`; 
+                let text = rec.text;
+            // Заменяем [ссылка] на кликабельные ссылки (временное решение)
+            text = text.replace(/\[ссылка\]/gi, '<a href="#" style="color: #667eea; text-decoration: underline; cursor: pointer;" onclick="alert(\'Ссылка на материал появится позже\')">открыть материал</a>');
+            // Превращаем реальные URL в ссылки
+            text = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color: #667eea; text-decoration: underline;">$1</a>');
+                document.getElementById('recText').innerHTML = `<p style="color:#666;margin-bottom:16px">${rec.date}</p>${text.replace(/\n/g,'<br>')}`; 
                 document.getElementById('recModal').classList.add('active'); 
-            } 
+            }    
         };
         window.closeRecModal = () => document.getElementById('recModal').classList.remove('active');
         
