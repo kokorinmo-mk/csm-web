@@ -82,6 +82,8 @@
         .spinner { width: 40px; height: 40px; border: 3px solid #e9ecef; border-top-color: #667eea; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .recommendation-text { white-space: pre-wrap; font-size: 14px; line-height: 1.6; }
+        .recommendation-text a { color: #667eea; text-decoration: underline; }
+        .recommendation-text a:hover { color: #764ba2; }
     </style>
 </head>
 <body>
@@ -507,18 +509,34 @@
         };
         window.closeHistoryModal = () => document.getElementById('historyModal').classList.remove('active');
         
+        // ========== ИСПРАВЛЕННАЯ ФУНКЦИЯ showRecModal С КЛИКАБЕЛЬНЫМИ ССЫЛКАМИ ==========
         window.showRecModal = (id) => { 
-        let rec = userResults.recommendations.find(r => r.id == id); 
+            let rec = userResults.recommendations.find(r => r.id == id); 
             if(rec){ 
                 let text = rec.text;
-            // Заменяем [ссылка] на кликабельные ссылки (временное решение)
-            text = text.replace(/\[ссылка\]/gi, '<a href="#" style="color: #667eea; text-decoration: underline; cursor: pointer;" onclick="alert(\'Ссылка на материал появится позже\')">открыть материал</a>');
-            // Превращаем реальные URL в ссылки
-            text = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color: #667eea; text-decoration: underline;">$1</a>');
-                document.getElementById('recText').innerHTML = `<p style="color:#666;margin-bottom:16px">${rec.date}</p>${text.replace(/\n/g,'<br>')}`; 
+                
+                // Заменяем [ссылка] на кликабельную ссылку
+                text = text.replace(/\[ссылка\]/gi, function(match) {
+                    return '<a href="#" style="color:#667eea;text-decoration:underline;" onclick="alert(\'Ссылка будет добавлена в следующей версии\')">📎 открыть материал</a>';
+                });
+                
+                // Превращаем реальные URL в кликабельные ссылки
+                text = text.replace(/(https?:\/\/[^\s\)\]]+)/g, function(url) {
+                    return '<a href="' + url + '" target="_blank" rel="noopener noreferrer" style="color:#667eea;text-decoration:underline;">' + url + '</a>';
+                });
+                
+                // Жирный текст
+                text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+                
+                // Переносы строк
+                text = text.replace(/\n/g, '<br>');
+                
+                document.getElementById('recText').innerHTML = `<p style="color:#666;margin-bottom:16px">📅 ${rec.date}</p>${text}`; 
                 document.getElementById('recModal').classList.add('active'); 
             }    
         };
+        // ====================================================================
+        
         window.closeRecModal = () => document.getElementById('recModal').classList.remove('active');
         
         window.switchTab = (tab) => { currentTab = tab; render(); };
