@@ -191,6 +191,9 @@
         async function loadUserResults(uid) {
             try {
                 userResults.testResults = [];
+                userResults.selfResults = [];
+                
+                // Загружаем тесты из testResults
                 const testQuery = query(collection(db, "users", uid, "testResults"), orderBy("date", "desc"));
                 const testSnapshot = await getDocs(testQuery);
                 for (const docSnap of testSnapshot.docs) {
@@ -205,8 +208,8 @@
                     });
                 }
                 
-                userResults.selfResults = [];
-                const selfQuery = query(collection(db, "users", uid, "results"), orderBy("date", "desc"));
+                // Загружаем самооценки из selfAssessmentResults
+                const selfQuery = query(collection(db, "users", uid, "selfAssessmentResults"), orderBy("date", "desc"));
                 const selfSnapshot = await getDocs(selfQuery);
                 for (const docSnap of selfSnapshot.docs) {
                     const data = docSnap.data();
@@ -220,7 +223,7 @@
                     });
                 }
                 
-                userResults.recommendations = [];
+                // Загружаем рекомендации
                 const recQuery = query(collection(db, "users", uid, "recommendations"), orderBy("date", "desc"));
                 const recSnapshot = await getDocs(recQuery);
                 for (const docSnap of recSnapshot.docs) {
@@ -234,12 +237,24 @@
                 }
                 
                 console.log(`📊 Загружено: тестов=${userResults.testResults.length}, самооценок=${userResults.selfResults.length}, рекомендаций=${userResults.recommendations.length}`);
-            } catch (error) { console.error("Ошибка загрузки:", error); }
+                
+            } catch (error) { 
+                console.error("Ошибка загрузки:", error); 
+            }
         }
 
         async function saveResultToFirestore(uid, result) {
             try {
-                const collectionName = result.type === 'test' ? 'testResults' : 'results';
+                // Определяем коллекцию в зависимости от типа
+                let collectionName;
+                if (result.type === 'test') {
+                    collectionName = 'testResults';
+                } else if (result.type === 'self') {
+                    collectionName = 'selfAssessmentResults';
+                } else {
+                    collectionName = 'results';
+                }
+                
                 await addDoc(collection(db, "users", uid, collectionName), {
                     type: result.type,
                     date: Timestamp.now(),
@@ -248,7 +263,9 @@
                     recommendations: result.recommendations || ""
                 });
                 await loadUserResults(uid);
-            } catch (error) { console.error("Ошибка сохранения:", error); }
+            } catch (error) { 
+                console.error("Ошибка сохранения:", error); 
+            }
         }
 
         async function saveRecommendationToFirestore(uid, text) {
