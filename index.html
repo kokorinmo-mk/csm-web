@@ -306,67 +306,94 @@
         }
 
         async function generateRec() {
-            if(userResults.testResults.length === 0) { 
-                alert("Сначала пройдите тест!"); 
-                return; 
-            }
-            
-            if (isGeneratingRec) {
-                alert("Рекомендации уже генерируются, подождите...");
-                return;
-            }
-            
-            const lastTest = userResults.testResults[0];
-            isGeneratingRec = true;
-            render();
-            
-            try {
-                console.log("🤖 Отправляем запрос к GigaChat через сервер...");
-                
-                const response = await fetch(SERVER_URL, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        userName: currentUserName,
-                        userEmail: currentUser?.email || "",
-                        testScores: lastTest.areaScores
-                    })
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-                
-                const data = await response.json();
-                let recommendationText = "";
-                
-                if (data.success && data.recommendations) {
-                    recommendationText = data.recommendations;
-                    console.log("✅ Получены рекомендации от GigaChat");
-                } else {
-                    recommendationText = generateLocalRecommendations(lastTest, currentUserName);
-                }
-                
-                if (currentUser) {
-                    await saveRecommendationToFirestore(currentUser.uid, recommendationText);
-                    await loadUserResults(currentUser.uid);
-                }
-                
-            } catch (error) {
-                console.error("❌ Ошибка:", error);
-                const fallbackText = generateLocalRecommendations(lastTest, currentUserName);
-                
-                if (currentUser) {
-                    await saveRecommendationToFirestore(currentUser.uid, fallbackText);
-                    await loadUserResults(currentUser.uid);
-                }
-                
-                alert("Не удалось подключиться к серверу GigaChat. Рекомендации сгенерированы локально.");
-            } finally {
-                isGeneratingRec = false;
-                render();
+        if(userResults.testResults.length === 0) { 
+            alert("Сначала пройдите тест!"); 
+            return; 
+        }
+        
+        if (isGeneratingRec) {
+            alert("Рекомендации уже генерируются, подождите...");
+            return;
+        }
+        
+        const lastTest = userResults.testResults[0];
+        isGeneratingRec = true;
+        
+        // Создаём буфер для отображения процесса
+        let statusMessages = [];
+        let currentStatus = "";
+        
+        render();
+        
+        // Функция обновления статуса в реальном времени
+        function updateStatus(message) {
+            statusMessages.push(message);
+            currentStatus = statusMessages.join('\n');
+            const statusDiv = document.getElementById('generationStatus');
+            if (statusDiv) {
+                statusDiv.innerHTML = currentStatus.replace(/\n/g, '<br>');
+                statusDiv.scrollTop = statusDiv.scrollHeight;
             }
         }
+        
+        updateStatus("🤖 Отправляю запрос к моделям...");
+        
+        try {
+            // Список моделей как на сервере
+            const models = [
+                "nvidia/nemotron-3-super",
+                "google/gemma-4-31b-it:free",
+                "minimax/minimax-m2.5",
+                "qwen/qwen3.6-plus-preview:free",
+                "baidu/cobuddy",
+                "nvidia/nemotron-nano-9b-v2",
+                "openrouter/free"
+            ];
+            
+            for (let i = 0; i < models.length; i++) {
+                updateStatus(`🔄 Пробую модель: ${models[i]}...`);
+                // Имитация паузы для показа процесса (сервер сам перебирает модели)
+                await new Promise(r => setTimeout(r, 500));
+            }
+            
+            updateStatus(`✅ Начинаю генерацию рекомендаций...`);
+            
+            const response = await fetch(SERVER_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    userName: currentUserName,
+                    userEmail: currentUser?.email || "",
+                    testScores: lastTest.areaScores
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success && data.recommendations) {
+                updateStatus(`✅ Рекомендации успешно получены от Qwen/Mistral!`);
+                
+                if (currentUser) {
+                    await saveRecommendationToFirestore(currentUser.uid, data.recommendations);
+                    await loadUserResults(currentUser.uid);
+                }
+            } else {
+                throw new Error("Не удалось получить рекомендации");
+            }
+            
+        } catch (error) {
+            console.error("❌ Ошибка:", error);
+            updateStatus(`❌ Ошибка: ${error.message}`);
+            alert("Не удалось получить рекомендации. Попробуйте позже.");
+        } finally {
+            isGeneratingRec = false;
+            render();
+        }
+    }
 
         function getTotalQuestions() { return testState.areas.reduce((s, a) => s + a.questions.length, 0); }
         function getAnsweredCount() { return Object.keys(testState.answers).length; }
@@ -525,13 +552,20 @@
         
         function renderRecommendations() { 
             if(isGeneratingRec) {
-                return `<div class="card text-center"><div class="spinner"></div><h1>⭐ Рекомендации</h1><p>Генерация рекомендаций через GigaChat...</p><p style="font-size:12px;color:#666">Это может занять несколько секунд</p></div>`;
-            }
-            if(userResults.recommendations.length === 0) { 
-                return `<div class="card text-center"><div style="font-size:60px">⭐</div><h1>Рекомендации</h1><p style="color:#666;margin-bottom:20px">Нет сохранённых рекомендаций</p><button class="btn btn-primary" onclick="generateRec()">✨ Получить рекомендации от GigaChat</button></div>`; 
-            }
-            return `<div class="card"><div class="justify-between flex" style="margin-bottom:20px"><h1>⭐ Рекомендации</h1><button class="btn btn-primary" style="width:auto;padding:10px 20px" onclick="generateRec()">✨ Новые</button></div>${userResults.recommendations.map(rec => `<div class="history-item" onclick="showRecModal('${rec.id}')"><div class="justify-between flex"><div><strong>${rec.date}</strong><p style="font-size:14px;color:#666;margin-top:5px">Персональные рекомендации от GigaChat</p></div><span style="font-size:20px">→</span></div></div>`).join('')}</div><div id="recModal" class="modal"><div class="modal-content"><div class="justify-between flex"><h2>⭐ Рекомендации</h2><button onclick="closeRecModal()" style="background:none;border:none;font-size:24px;cursor:pointer">✕</button></div><div id="recText" class="recommendation-text"></div></div></div>`; 
+                return `<div class="card text-center">
+                    <div class="spinner"></div>
+                    <h1>⭐ Рекомендации</h1>
+                    <div id="generationStatus" style="background: #f5f5f5; padding: 16px; border-radius: 12px; margin-top: 16px; text-align: left; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto;">
+                    🤖 Отправляю запрос к моделям...
+                </div>
+                <p style="font-size:12px;color:#666; margin-top:16px;">⏳ Это может занять 20-30 секунд</p>
+            </div>`;
         }
+        if(userResults.recommendations.length === 0) { 
+            return `<div class="card text-center"><div style="font-size:60px">⭐</div><h1>Рекомендации</h1><p style="color:#666;margin-bottom:20px">Нет сохранённых рекомендаций</p><button class="btn btn-primary" onclick="generateRec()">✨ Получить рекомендации от Qwen/Mistral</button></div>`; 
+        }
+        return `<div class="card"><div class="justify-between flex" style="margin-bottom:20px"><h1>⭐ Рекомендации</h1><button class="btn btn-primary" style="width:auto;padding:10px 20px" onclick="generateRec()">✨ Новые</button></div>${userResults.recommendations.map(rec => `<div class="history-item" onclick="showRecModal('${rec.id}')"><div class="justify-between flex"><div><strong>${rec.date}</strong><p style="font-size:14px;color:#666;margin-top:5px">Персональные рекомендации от Qwen/Mistral</p></div><span style="font-size:20px">→</span></div></div>`).join('')}</div><div id="recModal" class="modal"><div class="modal-content"><div class="justify-between flex"><h2>⭐ Рекомендации</h2><button onclick="closeRecModal()" style="background:none;border:none;font-size:24px;cursor:pointer">✕</button></div><div id="recText" class="recommendation-text"></div></div></div>`; 
+}
         
         function renderHistory() { let h = getAllHistory(); if(h.length===0) return `<div class="card text-center"><div style="font-size:60px">📜</div><h1>История</h1><p style="color:#666">Нет результатов</p></div>`; return `<div class="card"><h1>📜 История результатов</h1>${h.map(item=>`<div class="history-item" onclick="showHistoryModal('${item.id}','${item.type}')"><div class="justify-between flex"><div><span style="font-size:20px;margin-right:10px">${item.icon}</span><strong>${item.typeName}</strong><p style="font-size:12px;color:#666">${item.date}</p></div><span style="font-size:20px;font-weight:bold;color:${item.type==='test'?'#667eea':'#28a745'}">${item.type==='test'?item.overallScore+'%':item.overallScore.toFixed(1)+'/10'}</span></div></div>`).join('')}</div><div id="historyModal" class="modal"><div class="modal-content"><div class="justify-between flex"><h2 id="modalTitle">Детали</h2><button onclick="closeHistoryModal()" style="background:none;border:none;font-size:24px;cursor:pointer">✕</button></div><div id="modalContent"></div></div></div>`; }
         
