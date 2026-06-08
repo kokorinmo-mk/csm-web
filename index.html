@@ -309,108 +309,106 @@
             text += `💡 **Рекомендации:**\n`;
             
             if (testResult.overallScore >= 80) {
-                text += `• Отличный результат! Вы демонстрируете высокий уровень компетенций.\n`;
-                text += `• Рекомендуется делиться опытом с коллегами и участвовать в сложных проектах.\n`;
+                text += `• Отличный результат! Продолжайте развиваться и делитесь опытом.\n`;
             } else if (testResult.overallScore >= 60) {
-                text += `• Хороший результат! Обратите внимание на области, требующие развития.\n`;
-                text += `• Пройдите внутренние курсы по выявленным пробелам.\n`;
+                text += `• Хороший результат! Обратите внимание на слабые области.\n`;
             } else {
-                text += `• Рекомендуется пройти базовое обучение по компетенциям CSM.\n`;
-                text += `• Обратитесь к руководителю за индивидуальным планом развития.\n`;
+                text += `• Рекомендуется пройти обучение по компетенциям CSM.\n`;
             }
             
             return text;
         }
 
         async function generateRec() {
-        if(userResults.testResults.length === 0) { 
-            alert("Сначала пройдите тест!"); 
-            return; 
-        }
-        
-        if (isGeneratingRec) {
-            alert("Рекомендации уже генерируются, подождите...");
-            return;
-        }
-        
-        const lastTest = userResults.testResults[0];
-        isGeneratingRec = true;
-        
-        // Создаём буфер для отображения процесса
-        let statusMessages = [];
-        let currentStatus = "";
-        
-        render();
-        
-        // Функция обновления статуса в реальном времени
-        function updateStatus(message) {
-            statusMessages.push(message);
-            currentStatus = statusMessages.join('\n');
-            const statusDiv = document.getElementById('generationStatus');
-            if (statusDiv) {
-                statusDiv.innerHTML = currentStatus.replace(/\n/g, '<br>');
-                statusDiv.scrollTop = statusDiv.scrollHeight;
-            }
-        }
-        
-        updateStatus("🤖 Отправляю запрос к моделям...");
-        
-        try {
-            // Список моделей как на сервере
-            const models = [
-                "nvidia/nemotron-3-super",
-                "google/gemma-4-31b-it:free",
-                "minimax/minimax-m2.5",
-                "qwen/qwen3.6-plus-preview:free",
-                "baidu/cobuddy",
-                "nvidia/nemotron-nano-9b-v2",
-                "openrouter/free"
-            ];
-            
-            for (let i = 0; i < models.length; i++) {
-                updateStatus(`🔄 Пробую модель: ${models[i]}...`);
-                // Имитация паузы для показа процесса (сервер сам перебирает модели)
-                await new Promise(r => setTimeout(r, 500));
+            if(userResults.testResults.length === 0) { 
+                alert("Сначала пройдите тест!"); 
+                return; 
             }
             
-            updateStatus(`✅ Начинаю генерацию рекомендаций...`);
-            
-            const response = await fetch(SERVER_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    userName: currentUserName,
-                    userEmail: currentUser?.email || "",
-                    testScores: lastTest.areaScores
-                })
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
+            if (isGeneratingRec) {
+                alert("Рекомендации уже генерируются, подождите...");
+                return;
             }
             
-            const data = await response.json();
+            const lastTest = userResults.testResults[0];
             
-            if (data.success && data.recommendations) {
-                updateStatus(`✅ Рекомендации успешно получены от Qwen/Mistral!`);
+            // Загружаем последнюю самооценку из selfAssessmentResults
+            let lastSelfScores = [5, 5, 5, 5, 5, 5, 5, 5]; // значения по умолчанию
+            
+            if (currentUser) {
+                try {
+                    const selfQuery = query(
+                        collection(db, "users", currentUser.uid, "selfAssessmentResults"), 
+                        orderBy("date", "desc")
+                    );
+                    const selfSnapshot = await getDocs(selfQuery);
+                    if (!selfSnapshot.empty) {
+                        const lastSelf = selfSnapshot.docs[0].data();
+                        if (lastSelf.areaScores && lastSelf.areaScores.length === 8) {
+                            lastSelfScores = lastSelf.areaScores;
+                            console.log("📊 Загружена последняя самооценка:", lastSelfScores);
+                        }
+                    } else {
+                        console.log("⚠️ Нет сохранённой самооценки, использую значения по умолчанию");
+                    }
+                } catch (error) {
+                    console.error("❌ Ошибка загрузки самооценки:", error);
+                }
+            }
+            
+            isGeneratingRec = true;
+            render();
+            
+            try {
+                console.log("🤖 Отправляем запрос на сервер...");
+                console.log("📊 testScores:", lastTest.areaScores);
+                console.log("📊 selfScores:", lastSelfScores);
+                
+                const response = await fetch(SERVER_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        userName: currentUserName,
+                        userEmail: currentUser?.email || "",
+                        testScores: lastTest.areaScores,
+                        selfScores: lastSelfScores  // ← ДОБАВЛЕНО: отправляем самооценку
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                let recommendationText = "";
+                
+                if (data.success && data.recommendations) {
+                    recommendationText = data.recommendations;
+                    console.log("✅ Рекомендации получены от сервера");
+                } else {
+                    recommendationText = generateLocalRecommendations(lastTest, currentUserName);
+                }
                 
                 if (currentUser) {
-                    await saveRecommendationToFirestore(currentUser.uid, data.recommendations);
+                    await saveRecommendationToFirestore(currentUser.uid, recommendationText);
                     await loadUserResults(currentUser.uid);
                 }
-            } else {
-                throw new Error("Не удалось получить рекомендации");
+                
+            } catch (error) {
+                console.error("❌ Ошибка:", error);
+                const fallbackText = generateLocalRecommendations(lastTest, currentUserName);
+                
+                if (currentUser) {
+                    await saveRecommendationToFirestore(currentUser.uid, fallbackText);
+                    await loadUserResults(currentUser.uid);
+                }
+                
+                alert("Не удалось подключиться к серверу. Рекомендации сгенерированы локально.");
+            } finally {
+                isGeneratingRec = false;
+                render();
             }
-            
-        } catch (error) {
-            console.error("❌ Ошибка:", error);
-            updateStatus(`❌ Ошибка: ${error.message}`);
-            alert("Не удалось получить рекомендации. Попробуйте позже.");
-        } finally {
-            isGeneratingRec = false;
-            render();
         }
-    }
 
         function getTotalQuestions() { return testState.areas.reduce((s, a) => s + a.questions.length, 0); }
         function getAnsweredCount() { return Object.keys(testState.answers).length; }
